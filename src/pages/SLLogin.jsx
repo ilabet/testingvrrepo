@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Globe, ChevronDown, LogIn, Eye, EyeOff } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 const GRIDS = [
   { id: "agni", label: "Second Life (Main Grid)" },
@@ -15,6 +16,7 @@ export default function SLLogin() {
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [grid, setGrid] = useState("agni");
+  const [customLoginUri, setCustomLoginUri] = useState("");
   const [showGrid, setShowGrid] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,14 +26,26 @@ export default function SLLogin() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
-    // Simulate connection attempt
-    await new Promise((r) => setTimeout(r, 2000));
-
-    // In production, this would call the SL XMLRPC login endpoint
-    // For now, proceed to the orientation check
-    setLoading(false);
-    navigate("/orientation-check");
+    try {
+      const response = await base44.functions.invoke("sl_connect", {
+        first_name: firstName,
+        last_name: lastName || "Resident",
+        password,
+        grid,
+        custom_login_uri: customLoginUri,
+      });
+      const data = response.data;
+      if (data.success) {
+        navigate("/orientation-check");
+      } else {
+        setError(data.message || data.error || "Login failed");
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Could not reach the grid login server";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedGrid = GRIDS.find((g) => g.id === grid);
@@ -136,6 +150,20 @@ export default function SLLogin() {
                   )}
                 </div>
               </div>
+
+              {grid === "custom" && (
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block pl-1">Login URI</label>
+                  <input
+                    type="text"
+                    value={customLoginUri}
+                    onChange={(e) => setCustomLoginUri(e.target.value)}
+                    placeholder="http://grid.example.com:8002/cgi-bin/login.cgi"
+                    required
+                    className="w-full bg-gray-800/40 border border-gray-700/40 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:bg-gray-800/60 transition-all text-sm"
+                  />
+                </div>
+              )}
 
               {error && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

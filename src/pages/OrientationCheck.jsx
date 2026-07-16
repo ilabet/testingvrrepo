@@ -38,7 +38,7 @@ export default function OrientationCheck() {
       setLoadProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setTimeout(() => navigate("/viewer"), 300);
+          setTimeout(() => navigate("/mobile"), 300);
           return 100;
         }
         return prev + Math.random() * 15 + 5;

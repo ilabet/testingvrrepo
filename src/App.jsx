@@ -50,7 +50,7 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Navigate to="/sl-login" replace />} />
         <Route path="/sl-login" element={<SLLogin />} />
         <Route path="/orientation-check" element={<OrientationCheck />} />
-        <Route path="/viewer" element={<Viewer />} />
+        <Route path="/mobile" element={<Viewer />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
