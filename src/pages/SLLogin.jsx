@@ -17,6 +17,7 @@ export default function SLLogin() {
   const [password, setPassword] = useState("");
   const [grid, setGrid] = useState("agni");
   const [customLoginUri, setCustomLoginUri] = useState("");
+  const [proxyUrl, setProxyUrl] = useState(() => localStorage.getItem("sl_proxy_url") || "");
   const [showGrid, setShowGrid] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,15 +28,24 @@ export default function SLLogin() {
     setError("");
     setLoading(true);
     try {
-      const response = await base44.functions.invoke("sl_connect", {
-        first_name: firstName,
-        last_name: lastName || "Resident",
-        password,
-        grid,
-        custom_login_uri: customLoginUri,
-      });
+      // If a live proxy is configured, log in through it (full world stream);
+      // otherwise use the direct grid login bridge.
+      const usingProxy = Boolean(proxyUrl.trim());
+      const fnName = usingProxy ? "sl_proxy_connect" : "sl_connect";
+      const payload = usingProxy
+        ? { proxy_base_url: proxyUrl.trim(), first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri }
+        : { first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri };
+      const response = await base44.functions.invoke(fnName, payload);
       const data = response.data;
-      if (data.success) {
+      const ok = data.success !== false && (data.ws_url || data.websocket_url || data.agent_id || data.success === true);
+      if (ok) {
+        if (usingProxy) {
+          const ws = data.ws_url || data.websocket_url || "";
+          if (ws) localStorage.setItem("sl_ws_url", ws);
+        } else {
+          localStorage.removeItem("sl_ws_url");
+        }
+        localStorage.setItem("sl_proxy_url", proxyUrl.trim());
         navigate("/orientation-check");
       } else {
         setError(data.message || data.error || "Login failed");
@@ -164,6 +174,25 @@ export default function SLLogin() {
                   />
                 </div>
               )}
+
+              <details className="bg-cyan-500/5 border border-cyan-500/10 rounded-xl px-3 py-2">
+                <summary className="text-xs text-cyan-300/70 cursor-pointer select-none">
+                  Live world proxy (optional)
+                </summary>
+                <div className="mt-2">
+                  <label className="text-xs text-gray-400 mb-1 block pl-1">Proxy server URL</label>
+                  <input
+                    type="text"
+                    value={proxyUrl}
+                    onChange={(e) => setProxyUrl(e.target.value)}
+                    placeholder="https://your-proxy.example.com"
+                    className="w-full bg-gray-800/40 border border-gray-700/40 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 focus:bg-gray-800/60 transition-all text-sm"
+                  />
+                  <p className="text-gray-500 text-[10px] mt-1 pl-1">
+                    Leave empty for the sandbox scene. Enter your VPS proxy URL to stream the live SL world.
+                  </p>
+                </div>
+              </details>
 
               {error && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

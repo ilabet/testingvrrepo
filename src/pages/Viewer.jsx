@@ -11,15 +11,24 @@ import PeoplePanel from "@/components/viewer/PeoplePanel";
 import MiniMap from "@/components/viewer/MiniMap";
 import AppearancePanel from "@/components/viewer/AppearancePanel";
 import WorldScene from "@/components/viewer/WorldScene";
+import { useWorldStream } from "@/hooks/useWorldStream";
 
 export default function Viewer() {
   const [activeTool, setActiveTool] = useState(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
   const joystickInput = useRef({ x: 0, y: 0 });
 
+  // Live world-stream proxy connection (empty = sandbox scene fallback)
+  const wsUrl = localStorage.getItem("sl_ws_url") || "";
+  const { connected, send } = useWorldStream(wsUrl);
+
   const handleJoystickMove = useCallback((pos) => {
     joystickInput.current = pos;
-  }, []);
+    // Relay movement to the live proxy when connected
+    if (connected) {
+      send({ type: "agent_update", x: pos.x, y: pos.y, vel_x: pos.x, vel_y: pos.y, vel_z: 0, yaw: 0, running: false, flying: false });
+    }
+  }, [connected, send]);
 
   const handleToolSelect = (toolId) => {
     if (toolId === "minimap") {
@@ -74,9 +83,10 @@ export default function Viewer() {
 
       {/* Location bar */}
       <div className="fixed top-3 left-14 right-14 z-20 flex justify-center pointer-events-none">
-        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 pointer-events-auto">
+        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 pointer-events-auto flex items-center gap-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-400" : "bg-gray-500"}`} />
           <p className="text-white/60 text-[10px] text-center">
-            Welcome Island (128, 128, 25) • FPS: 60
+            {connected ? "LIVE • Second Life" : "Sandbox • Welcome Island (128, 128, 25)"} • FPS: 60
           </p>
         </div>
       </div>
