@@ -1,0 +1,41 @@
+{
+  "name": "SLSession",
+  "type": "object",
+  "properties": {
+    "first_name": {
+      "type": "string"
+    },
+    "last_name": {
+      "type": "string"
+    },
+    "grid": {
+      "type": "string",
+      "default": "agni"
+    },
+    "session_token": {
+      "type": "string"
+    },
+    "agent_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "logged_in",
+        "logged_out",
+        "connecting"
+      ],
+      "default": "logged_out"
+    },
+    "last_location": {
+      "type": "string"
+    },
+    "avatar_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "first_name",
+    "last_name"
+  ]
+}
