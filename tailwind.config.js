@@ -70,6 +70,7 @@ module.exports = {
   			heading: ['var(--font-heading)'],
   			body: ['var(--font-body)'],
   			display: ['var(--font-display)'],
+  			serif: ['var(--font-serif)'],
   			mono: ['var(--font-mono)']
   		},
   		keyframes: {
