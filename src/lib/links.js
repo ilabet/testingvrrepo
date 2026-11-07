@@ -1,0 +1,1 @@
+export const DISCORD_INVITE = "https://discord.com/invite/GzNz2CkKgr";

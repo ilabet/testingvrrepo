@@ -7,6 +7,9 @@ import LoginBackdrop from "@/components/login/LoginBackdrop";
 import LoginWindow from "@/components/login/LoginWindow";
 import LoginBrandPanel from "@/components/login/LoginBrandPanel";
 import LoginStatusCards from "@/components/login/LoginStatusCards";
+import LoginMusicPlayer from "@/components/login/LoginMusicPlayer";
+import LoginDiscordBadge from "@/components/login/LoginDiscordBadge";
+import { FRAME_PRESETS } from "@/lib/framePresets";
 import LoginCustomizePanel from "@/components/login/LoginCustomizePanel";
 import LoginInfoDialog from "@/components/login/LoginInfoDialog";
 import { DEFAULT_THEME } from "@/components/login/loginTheme";
@@ -65,6 +68,10 @@ export default function SLLogin() {
           blur: rec.blur ?? DEFAULT_THEME.blur,
           headline: rec.headline || DEFAULT_THEME.headline,
           subheadline: rec.subheadline || DEFAULT_THEME.subheadline,
+          logo_url: rec.logo_url || "",
+          frame_style: rec.frame_style || "none",
+          music_url: rec.music_url || "",
+          music_title: rec.music_title || "",
         });
       })
       .catch(() => {});
@@ -74,16 +81,20 @@ export default function SLLogin() {
       .catch(() => {});
   }, []);
 
-  const handleUpload = async (file) => {
+  const handleUpload = async (file, kind = "background") => {
     if (!file) return;
     setUploading(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
-      setTheme((t) => ({
-        ...t,
-        background_url: file_url,
-        background_type: file.type.startsWith("video") ? "video" : "image",
-      }));
+      if (kind === "logo") {
+        setTheme((t) => ({ ...t, logo_url: file_url }));
+      } else {
+        setTheme((t) => ({
+          ...t,
+          background_url: file_url,
+          background_type: file.type.startsWith("video") ? "video" : "image",
+        }));
+      }
     } finally {
       setUploading(false);
     }
@@ -100,6 +111,10 @@ export default function SLLogin() {
         blur: Number(theme.blur),
         headline: theme.headline,
         subheadline: theme.subheadline,
+        logo_url: theme.logo_url,
+        frame_style: theme.frame_style,
+        music_url: theme.music_url,
+        music_title: theme.music_title,
       };
       if (themeRecord) {
         const updated = await base44.entities.LoginTheme.update(themeRecord.id, payload);
@@ -167,6 +182,7 @@ export default function SLLogin() {
 
   const selectedGrid = GRIDS.find((g) => g.id === grid);
   const accent = theme.accent_color || DEFAULT_THEME.accent_color;
+  const frame = FRAME_PRESETS[theme.frame_style] || FRAME_PRESETS.none;
 
   return (
     <div className="fixed inset-0 overflow-y-auto bg-[#08060f] text-white">
@@ -183,12 +199,16 @@ export default function SLLogin() {
             canCustomize={ownerSignedIn}
             onCustomize={() => setShowCustomize(true)}
             onOwnerLogin={() => navigate("/login")}
+            logoUrl={theme.logo_url}
+            frameStyle={theme.frame_style}
           >
             <div className="grid md:grid-cols-[240px_1fr]">
               <LoginBrandPanel
                 headline={theme.headline}
                 subheadline={theme.subheadline}
                 accent={accent}
+                logoUrl={theme.logo_url}
+                brandGradient={frame.brand}
               />
 
               <div className="p-4 sm:p-5">
@@ -364,11 +384,17 @@ export default function SLLogin() {
             />
           </div>
 
+          <div className="mt-3 flex justify-center">
+            <LoginDiscordBadge accent={accent} />
+          </div>
+
           <p className="mt-3 text-center text-[10px] text-white/25">
             Powered by Second Life Go · Your credentials go straight to the grid login server
           </p>
         </div>
       </div>
+
+      <LoginMusicPlayer url={theme.music_url} title={theme.music_title} />
 
       <AnimatePresence>
         {showCustomize && (

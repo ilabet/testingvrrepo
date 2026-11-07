@@ -2,12 +2,15 @@ import React from "react";
 import { Image } from "@/components/ui/image";
 import { APP_LOGO } from "@/components/login/loginTheme";
 
-export default function LoginBrandPanel({ headline, subheadline, accent }) {
+export default function LoginBrandPanel({ headline, subheadline, accent, logoUrl, brandGradient }) {
   return (
-    <div className="hidden flex-col justify-between border-r border-white/10 bg-gradient-to-b from-neon-purple/15 via-transparent to-neon-pink/15 p-5 md:flex">
+    <div
+      className="hidden flex-col justify-between border-r border-white/10 p-5 md:flex"
+      style={{ background: brandGradient }}
+    >
       <div>
         <Image
-          src={APP_LOGO}
+          src={logoUrl || APP_LOGO}
           alt="Second Life Go"
           fittingType="fit"
           className="h-20 w-20 drop-shadow-[0_0_25px_rgba(236,72,153,0.45)]"

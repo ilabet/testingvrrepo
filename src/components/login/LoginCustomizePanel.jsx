@@ -1,7 +1,8 @@
 import React, { useRef } from "react";
 import { motion } from "framer-motion";
-import { X, Upload, Loader2, RotateCcw } from "lucide-react";
+import { X, Upload, Loader2, RotateCcw, Image as ImageIcon, Music2 } from "lucide-react";
 import { ACCENT_SWATCHES, DEFAULT_THEME } from "./loginTheme";
+import { FRAME_PRESET_LIST } from "@/lib/framePresets";
 
 const TYPES = [
   { id: "gradient", label: "Gradient" },
@@ -11,6 +12,7 @@ const TYPES = [
 
 export default function LoginCustomizePanel({ theme, onChange, onSave, onClose, onUpload, saving, uploading }) {
   const fileRef = useRef(null);
+  const iconRef = useRef(null);
   const set = (patch) => onChange({ ...theme, ...patch });
 
   return (
@@ -52,7 +54,7 @@ export default function LoginCustomizePanel({ theme, onChange, onSave, onClose, 
             type="file"
             accept="image/*,video/*"
             className="hidden"
-            onChange={(e) => onUpload(e.target.files?.[0])}
+            onChange={(e) => onUpload(e.target.files?.[0], "background")}
           />
           <button
             onClick={() => fileRef.current?.click()}
@@ -69,6 +71,91 @@ export default function LoginCustomizePanel({ theme, onChange, onSave, onClose, 
               className="mt-2 w-full text-[10px] text-white/35 hover:text-red-400"
             >
               Remove uploaded background
+            </button>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wider text-white/40">Custom icon</p>
+          <div className="flex items-center gap-2">
+            <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg border border-white/10 bg-white/5">
+              {theme.logo_url ? (
+                <img src={theme.logo_url} alt="Custom icon" className="h-full w-full object-contain" />
+              ) : (
+                <ImageIcon className="h-4 w-4 text-white/25" />
+              )}
+            </div>
+            <button
+              onClick={() => iconRef.current?.click()}
+              disabled={uploading}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/20 py-2 text-[11px] text-white/60 transition-colors hover:border-white/40 hover:text-white disabled:opacity-50"
+            >
+              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Replace logo
+            </button>
+            {theme.logo_url && (
+              <button
+                onClick={() => set({ logo_url: "" })}
+                className="text-[10px] text-white/35 hover:text-red-400"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <input
+            ref={iconRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onUpload(e.target.files?.[0], "logo")}
+          />
+        </section>
+
+        <section>
+          <p className="mb-2 text-[10px] uppercase tracking-wider text-white/40">UI frame template</p>
+          <div className="grid grid-cols-2 gap-2">
+            {FRAME_PRESET_LIST.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => set({ frame_style: preset.id })}
+                className={`overflow-hidden rounded-lg border text-left transition-colors ${
+                  theme.frame_style === preset.id
+                    ? "border-white/70"
+                    : "border-white/10 hover:border-white/35"
+                }`}
+              >
+                <span className="block h-8 w-full" style={{ background: preset.frameGradient }} />
+                <span className="block truncate px-2 py-1.5 text-[10px] text-white/60">{preset.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/40">
+            <Music2 className="h-3 w-3" /> Login music
+          </p>
+          <input
+            value={theme.music_url}
+            onChange={(e) => set({ music_url: e.target.value })}
+            placeholder="YouTube, SoundCloud or Spotify link"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-white/30 focus:border-white/30 focus:outline-none"
+          />
+          <input
+            value={theme.music_title}
+            onChange={(e) => set({ music_title: e.target.value })}
+            placeholder="Track title (optional)"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-white/30 focus:border-white/30 focus:outline-none"
+          />
+          <p className="text-[10px] leading-relaxed text-white/30">
+            Paste a share link. Visitors press “Play music” to start it.
+          </p>
+          {theme.music_url && (
+            <button
+              onClick={() => set({ music_url: "", music_title: "" })}
+              className="w-full text-[10px] text-white/35 hover:text-red-400"
+            >
+              Remove music
             </button>
           )}
         </section>

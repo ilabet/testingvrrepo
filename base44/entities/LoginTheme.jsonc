@@ -36,6 +36,33 @@
     },
     "subheadline": {
       "type": "string"
+    },
+    "logo_url": {
+      "type": "string"
+    },
+    "frame_style": {
+      "type": "string",
+      "enum": [
+        "none",
+        "bronze",
+        "gothic",
+        "lily",
+        "kawaii"
+      ],
+      "default": "none",
+      "enumColors": [
+        "gray",
+        "yellow",
+        "purple",
+        "pink",
+        "blue"
+      ]
+    },
+    "music_url": {
+      "type": "string"
+    },
+    "music_title": {
+      "type": "string"
     }
   },
   "rls": {
