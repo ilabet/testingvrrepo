@@ -45,8 +45,11 @@ export default function SLLogin() {
   const [uploading, setUploading] = useState(false);
   const [infoMode, setInfoMode] = useState(null);
   const [lastSession, setLastSession] = useState(null);
+  const [ownerSignedIn, setOwnerSignedIn] = useState(false);
 
   useEffect(() => {
+    base44.auth.isAuthenticated().then(setOwnerSignedIn).catch(() => {});
+
     base44.entities.LoginTheme.list({ sort: "-updated_date", limit: 1 })
       .then((page) => {
         if (!page.items.length) return;
@@ -132,6 +135,17 @@ export default function SLLogin() {
           localStorage.removeItem("sl_ws_url");
         }
         localStorage.setItem("sl_proxy_url", proxyUrl.trim());
+        localStorage.setItem(
+          "sl_session",
+          JSON.stringify({
+            first_name: firstName,
+            last_name: lastName || "Resident",
+            grid,
+            agent_id: data.agent_id || null,
+            session_id: data.session_id || null,
+            signed_in_at: new Date().toISOString(),
+          })
+        );
         if (rememberName && firstName) {
           localStorage.setItem("sl_remember_name", firstName);
         } else {
@@ -162,6 +176,8 @@ export default function SLLogin() {
           onHelp={() => setInfoMode("help")}
           onDebug={() => setInfoMode("debug")}
           onCustomize={() => setShowCustomize(true)}
+          canCustomize={ownerSignedIn}
+          onOwnerLogin={() => navigate("/login")}
         />
 
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-10 sm:px-6">
@@ -344,9 +360,11 @@ export default function SLLogin() {
               </div>
 
               <div className="mt-4 flex items-center justify-center gap-4 text-[11px]">
-                <button onClick={() => setShowCustomize(true)} className="flex items-center gap-1.5 text-white/40 hover:text-white/80">
-                  <Palette className="h-3 w-3" /> Customize this screen
-                </button>
+                {ownerSignedIn && (
+                  <button onClick={() => setShowCustomize(true)} className="flex items-center gap-1.5 text-white/40 hover:text-white/80">
+                    <Palette className="h-3 w-3" /> Customize this screen
+                  </button>
+                )}
                 <button onClick={() => setInfoMode("help")} className="text-white/40 hover:text-white/80">
                   Help
                 </button>

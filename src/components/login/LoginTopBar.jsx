@@ -3,7 +3,7 @@ import { Palette } from "lucide-react";
 import { Image } from "@/components/ui/image";
 import { APP_LOGO } from "./loginTheme";
 
-export default function LoginTopBar({ onViewer, onHelp, onDebug, onCustomize }) {
+export default function LoginTopBar({ onViewer, onHelp, onDebug, onCustomize, canCustomize, onOwnerLogin }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -45,13 +45,22 @@ export default function LoginTopBar({ onViewer, onHelp, onDebug, onCustomize }) 
         <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-white/60 sm:block">
           {time}
         </span>
-        <button
-          onClick={onCustomize}
-          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          <Palette className="h-3.5 w-3.5" />
-          Customize
-        </button>
+        {canCustomize ? (
+          <button
+            onClick={onCustomize}
+            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Palette className="h-3.5 w-3.5" />
+            Customize
+          </button>
+        ) : (
+          <button
+            onClick={onOwnerLogin}
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            Owner sign in
+          </button>
+        )}
       </div>
     </header>
   );

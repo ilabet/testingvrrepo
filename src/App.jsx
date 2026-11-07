@@ -6,7 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import SLSessionGate from '@/components/SLSessionGate';
 import { Navigate } from 'react-router-dom';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -46,9 +46,9 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-        <Route path="/" element={<Navigate to="/sl-login" replace />} />
-        <Route path="/sl-login" element={<SLLogin />} />
+      <Route path="/" element={<Navigate to="/sl-login" replace />} />
+      <Route path="/sl-login" element={<SLLogin />} />
+      <Route element={<SLSessionGate />}>
         <Route path="/orientation-check" element={<OrientationCheck />} />
         <Route path="/mobile" element={<Viewer />} />
       </Route>
