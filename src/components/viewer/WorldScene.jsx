@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
 import { createVrHud } from "@/lib/vrHud";
+import { loadControls } from "@/lib/vrControls";
 
 const NEON_PURPLE = 0xa855f7;
 const NEON_PINK = 0xec4899;
@@ -19,6 +20,16 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
   useEffect(() => {
     toolRef.current = onSelectTool;
   }, [onSelectTool]);
+
+  const controlsRef = useRef(loadControls());
+
+  useEffect(() => {
+    const handler = (e) => {
+      controlsRef.current = e.detail;
+    };
+    window.addEventListener("vr-controls-updated", handler);
+    return () => window.removeEventListener("vr-controls-updated", handler);
+  }, []);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -139,7 +150,8 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     // ---- In-world VR HUD ----
     let fps = 60;
     const hud = createVrHud({
-      getStatus: () => `${statusRef.current}\n${Math.round(fps)} fps · WebXR`,
+      getStatus: () =>
+        `${statusRef.current}\n${Math.round(fps)} fps · WebXR\nLeft stick move · A jump · B menu`,
       actions: {
         minimap: () => toolRef.current?.("minimap"),
         recenter: () => {
@@ -184,7 +196,7 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       player.rotation.set(0, 0, 0);
       camera.position.set(0, 1.6, 0);
       camera.rotation.set(0, 0, 0);
-      hud.mesh.visible = true;
+      hud.mesh.visible = controlsRef.current.showHud !== false;
     };
     const onSessionEnd = () => {
       hud.mesh.visible = false;
@@ -196,24 +208,52 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     renderer.xr.addEventListener("sessionstart", onSessionStart);
     renderer.xr.addEventListener("sessionend", onSessionEnd);
 
-    // ---- Locomotion: left stick moves, right stick snap-turns ----
+    // ---- Locomotion (VRChat-style bindings) ----
+    // left stick: move (edge = run) · right stick: turn · A/X: jump · B/Y: quick menu
     const clock = new THREE.Clock();
     const forward = new THREE.Vector3();
     const right = new THREE.Vector3();
     const UP = new THREE.Vector3(0, 1, 0);
 
+    let velocityY = 0;
+
+    const pressEdge = (controller, index) => {
+      const gp = controller.userData.inputSource?.gamepad;
+      const pressed = Boolean(gp?.buttons?.[index]?.pressed);
+      const key = `btn${index}`;
+      const wasPressed = controller.userData[key] ?? false;
+      controller.userData[key] = pressed;
+      return pressed && !wasPressed;
+    };
+
+    const handleButtons = (controller) => {
+      // A / X — jump
+      if (pressEdge(controller, 4) && player.position.y <= 0.01) velocityY = 4.2;
+      // B / Y — toggle the quick menu
+      if (pressEdge(controller, 5)) {
+        hud.mesh.visible = !hud.mesh.visible;
+        controlsRef.current = { ...controlsRef.current, showHud: hud.mesh.visible };
+      }
+    };
+
     const updateLocomotion = (dt) => {
+      const cfg = controlsRef.current;
+
       controllers.forEach((controller, index) => {
         const gp = controller.userData.inputSource?.gamepad;
         if (!gp) return;
+        handleButtons(controller);
+
         const ax = gp.axes.length >= 4 ? gp.axes[2] : gp.axes[0];
         const ay = gp.axes.length >= 4 ? gp.axes[3] : gp.axes[1];
         if (typeof ax !== "number" || typeof ay !== "number") return;
 
         if (index === 1) {
-          if (Math.abs(ax) > 0.7) {
+          if (cfg.turnMode === "smooth") {
+            if (Math.abs(ax) > 0.15) player.rotation.y -= ax * 2.2 * dt;
+          } else if (Math.abs(ax) > 0.7) {
             if (controller.userData.turnReady !== false) {
-              player.rotation.y -= Math.sign(ax) * (Math.PI / 6);
+              player.rotation.y -= Math.sign(ax) * ((cfg.snapAngle || 30) * Math.PI) / 180;
               controller.userData.turnReady = false;
             }
           } else if (Math.abs(ax) < 0.3) {
@@ -222,15 +262,22 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
           return;
         }
 
-        if (Math.abs(ax) < 0.15 && Math.abs(ay) < 0.15) return;
+        const magnitude = Math.hypot(ax, ay);
+        if (magnitude < 0.15) return;
         camera.getWorldDirection(forward);
         forward.y = 0;
         forward.normalize();
         right.crossVectors(forward, UP).normalize();
-        const speed = 2.4 * dt;
+        const running = magnitude > 0.92;
+        const speed = (cfg.moveSpeed || 2.4) * (running ? cfg.runMultiplier || 1.8 : 1) * dt;
         player.position.addScaledVector(forward, -ay * speed);
         player.position.addScaledVector(right, ax * speed);
       });
+
+      // gravity
+      velocityY -= 9.8 * dt;
+      player.position.y = Math.max(0, player.position.y + velocityY * dt);
+      if (player.position.y <= 0) velocityY = 0;
     };
 
     // ---- Controller ray → HUD hit testing ----
@@ -240,6 +287,10 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     const rayDir = new THREE.Vector3();
 
     const updateHudPointer = (controller) => {
+      if (!hud.mesh.visible) {
+        controller.userData.hudIndex = -1;
+        return;
+      }
       controller.updateMatrixWorld();
       rotMatrix.identity().extractRotation(controller.matrixWorld);
       rayOrigin.setFromMatrixPosition(controller.matrixWorld);

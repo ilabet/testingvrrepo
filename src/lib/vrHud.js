@@ -61,7 +61,7 @@ export function createVrHud({ getStatus, actions }) {
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     String(getStatus())
       .split("\n")
-      .slice(0, 2)
+      .slice(0, 3)
       .forEach((line, i) => ctx.fillText(line, 30, 84 + i * 24));
 
     rects.length = 0;
