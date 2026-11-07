@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import { Globe, ChevronDown, LogIn, Eye, EyeOff, Palette } from "lucide-react";
+import { Globe, ChevronDown, LogIn, Eye, EyeOff } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { Image } from "@/components/ui/image";
 import LoginBackdrop from "@/components/login/LoginBackdrop";
-import LoginTopBar from "@/components/login/LoginTopBar";
+import LoginWindow from "@/components/login/LoginWindow";
+import LoginBrandPanel from "@/components/login/LoginBrandPanel";
 import LoginStatusCards from "@/components/login/LoginStatusCards";
 import LoginCustomizePanel from "@/components/login/LoginCustomizePanel";
 import LoginInfoDialog from "@/components/login/LoginInfoDialog";
-import { DEFAULT_THEME, APP_LOGO } from "@/components/login/loginTheme";
+import { DEFAULT_THEME } from "@/components/login/loginTheme";
 
 const GRIDS = [
   { id: "agni", label: "Second Life (Main Grid)" },
@@ -19,7 +19,9 @@ const GRIDS = [
 ];
 
 const INPUT =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 transition-all focus:border-white/35 focus:bg-white/10 focus:outline-none";
+  "w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white placeholder-white/25 transition-colors focus:border-neon-pink/60 focus:outline-none focus:ring-1 focus:ring-neon-pink/30";
+
+const LABEL = "mb-1 block text-[10px] uppercase tracking-wider text-white/40";
 
 export default function SLLogin() {
   const navigate = useNavigate();
@@ -167,118 +169,121 @@ export default function SLLogin() {
   const accent = theme.accent_color || DEFAULT_THEME.accent_color;
 
   return (
-    <div className="fixed inset-0 overflow-y-auto bg-[#2b2828] text-white">
+    <div className="fixed inset-0 overflow-y-auto bg-[#08060f] text-white">
       <LoginBackdrop theme={theme} />
 
-      <div className="relative z-10 flex min-h-full flex-col">
-        <LoginTopBar
-          onViewer={() => navigate("/mobile")}
-          onHelp={() => setInfoMode("help")}
-          onDebug={() => setInfoMode("debug")}
-          onCustomize={() => setShowCustomize(true)}
-          canCustomize={ownerSignedIn}
-          onOwnerLogin={() => navigate("/login")}
-        />
-
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-10 sm:px-6">
-          <LoginStatusCards
+      <div className="relative z-10 flex min-h-full flex-col justify-center px-3 py-6 sm:px-6">
+        <div className="mx-auto w-full max-w-3xl">
+          <LoginWindow
             gridLabel={selectedGrid?.label}
-            proxyUrl={proxyUrl}
-            lastSession={lastSession}
-            accent={accent}
-          />
+            loading={loading}
+            onViewer={() => navigate("/mobile")}
+            onHelp={() => setInfoMode("help")}
+            onDebug={() => setInfoMode("debug")}
+            canCustomize={ownerSignedIn}
+            onCustomize={() => setShowCustomize(true)}
+            onOwnerLogin={() => navigate("/login")}
+          >
+            <div className="grid md:grid-cols-[240px_1fr]">
+              <LoginBrandPanel
+                headline={theme.headline}
+                subheadline={theme.subheadline}
+                accent={accent}
+              />
 
-          <div className="relative mt-10 flex justify-center">
-            {/* Faint brand mark behind the entry card */}
-            <Image
-              src={APP_LOGO}
-              alt=""
-              fittingType="fit"
-              className="pointer-events-none absolute -top-16 left-1/2 h-[380px] w-[380px] -translate-x-1/2 opacity-[0.06]"
-            />
+              <div className="p-4 sm:p-5">
+                <div className="mb-4 md:hidden">
+                  <h1 className="font-serif text-2xl font-bold leading-tight text-white">{theme.headline}</h1>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/50">{theme.subheadline}</p>
+                </div>
 
-            <div className="relative w-full max-w-md">
-              <div className="mb-6 text-center">
-                <h1 className="font-serif text-3xl font-bold leading-tight text-white sm:text-4xl">
-                  {theme.headline}
-                </h1>
-                <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-white/55 sm:text-sm">
-                  {theme.subheadline}
-                </p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-black/45 p-5 shadow-2xl backdrop-blur-2xl sm:p-6">
                 <form onSubmit={handleLogin} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block pl-1 text-[10px] uppercase tracking-wider text-white/40">First name</label>
-                      <input
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="First"
-                        required
-                        className={INPUT}
-                      />
+                  {/* Account */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-neon-pink/70">Account</p>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={LABEL}>First name</label>
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="First"
+                          required
+                          className={INPUT}
+                        />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Last name</label>
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Resident"
+                          required
+                          className={INPUT}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="mb-1 block pl-1 text-[10px] uppercase tracking-wider text-white/40">Last name</label>
-                      <input
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Resident"
-                        required
-                        className={INPUT}
-                      />
+
+                    <div className="mt-2">
+                      <label className={LABEL}>Password</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          required
+                          className={`${INPUT} pr-10`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/35 transition-colors hover:text-neon-pink"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
+
+                    <label className="mt-2.5 flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={rememberName}
+                        onChange={(e) => setRememberName(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-white/20 bg-white/10 accent-[#ec4899]"
+                      />
+                      <span className="text-[11px] text-white/45">Remember username</span>
+                    </label>
                   </div>
 
-                  <div>
-                    <label className="mb-1 block pl-1 text-[10px] uppercase tracking-wider text-white/40">Password</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        required
-                        className={`${INPUT} pr-12`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/80"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block pl-1 text-[10px] uppercase tracking-wider text-white/40">Grid</label>
+                  {/* Grid */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-neon-blue/80">Grid</p>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setShowGrid(!showGrid)}
-                        className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white transition-all hover:bg-white/10"
+                        className="flex w-full items-center justify-between rounded-md border border-white/10 bg-black/50 px-3 py-2 text-left text-sm text-white transition-colors hover:border-white/20"
                       >
-                        <span className="flex items-center gap-2">
-                          <Globe className="h-4 w-4" style={{ color: accent }} />
-                          {selectedGrid?.label}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Globe className="h-4 w-4 shrink-0" style={{ color: accent }} />
+                          <span className="truncate">{selectedGrid?.label}</span>
                         </span>
-                        <ChevronDown className={`h-4 w-4 text-white/40 transition-transform ${showGrid ? "rotate-180" : ""}`} />
+                        <ChevronDown className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${showGrid ? "rotate-180" : ""}`} />
                       </button>
 
                       {showGrid && (
-                        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-white/10 bg-[#1c1a1a] shadow-xl">
+                        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-white/10 bg-[#140f1c] shadow-xl">
                           {GRIDS.map((g) => (
                             <button
                               key={g.id}
                               type="button"
                               onClick={() => { setGrid(g.id); setShowGrid(false); }}
-                              className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-white/10 ${
-                                grid === g.id ? "bg-white/10 text-white" : "text-white/60"
+                              className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-white/10 ${
+                                grid === g.id ? "bg-neon-purple/20 text-white" : "text-white/60"
                               }`}
                             >
                               {g.label}
@@ -287,28 +292,28 @@ export default function SLLogin() {
                         </div>
                       )}
                     </div>
+
+                    {grid === "custom" && (
+                      <div className="mt-2">
+                        <label className={LABEL}>Login URI</label>
+                        <input
+                          type="text"
+                          value={customLoginUri}
+                          onChange={(e) => setCustomLoginUri(e.target.value)}
+                          placeholder="http://grid.example.com:8002/cgi-bin/login.cgi"
+                          required
+                          className={INPUT}
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {grid === "custom" && (
-                    <div>
-                      <label className="mb-1 block pl-1 text-[10px] uppercase tracking-wider text-white/40">Login URI</label>
-                      <input
-                        type="text"
-                        value={customLoginUri}
-                        onChange={(e) => setCustomLoginUri(e.target.value)}
-                        placeholder="http://grid.example.com:8002/cgi-bin/login.cgi"
-                        required
-                        className={INPUT}
-                      />
-                    </div>
-                  )}
-
-                  <details className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                  <details className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
                     <summary className="cursor-pointer select-none text-[11px] text-white/50">
                       Live world proxy (optional)
                     </summary>
                     <div className="mt-2">
-                      <label className="mb-1 block pl-1 text-[10px] uppercase tracking-wider text-white/40">Proxy server URL</label>
+                      <label className={LABEL}>Proxy server URL</label>
                       <input
                         type="text"
                         value={proxyUrl}
@@ -316,37 +321,26 @@ export default function SLLogin() {
                         placeholder="https://your-service.up.railway.app"
                         className={INPUT}
                       />
-                      <p className="mt-1 pl-1 text-[10px] text-white/35">
+                      <p className="mt-1 text-[10px] text-white/35">
                         Leave empty for the sandbox scene. Enter your VPS proxy URL to stream the live SL world.
                       </p>
                     </div>
                   </details>
 
-                  <label className="flex cursor-pointer items-center gap-2 pl-1 pt-1">
-                    <input
-                      type="checkbox"
-                      checked={rememberName}
-                      onChange={(e) => setRememberName(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-white/20 bg-white/10 accent-white"
-                    />
-                    <span className="text-[11px] text-white/45">Remember username</span>
-                  </label>
-
                   {error && (
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
-                      <p className="text-xs text-red-300">{error}</p>
+                    <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
+                      <p className="text-xs leading-relaxed text-red-300">{error}</p>
                     </div>
                   )}
 
                   <button
                     type="submit"
                     disabled={loading}
-                    style={{ backgroundColor: accent }}
-                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-semibold text-[#1b1a1a] shadow-lg transition-all hover:brightness-110 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-neon-purple via-neon-pink to-neon-blue py-3 text-sm font-semibold tracking-wide text-white shadow-[0_0_30px_-8px_rgba(236,72,153,0.9)] transition-all hover:brightness-110 disabled:opacity-50"
                   >
                     {loading ? (
                       <>
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black/70" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                         Connecting...
                       </>
                     ) : (
@@ -358,24 +352,22 @@ export default function SLLogin() {
                   </button>
                 </form>
               </div>
-
-              <div className="mt-4 flex items-center justify-center gap-4 text-[11px]">
-                {ownerSignedIn && (
-                  <button onClick={() => setShowCustomize(true)} className="flex items-center gap-1.5 text-white/40 hover:text-white/80">
-                    <Palette className="h-3 w-3" /> Customize this screen
-                  </button>
-                )}
-                <button onClick={() => setInfoMode("help")} className="text-white/40 hover:text-white/80">
-                  Help
-                </button>
-              </div>
             </div>
-          </div>
-        </main>
+          </LoginWindow>
 
-        <footer className="border-t border-white/5 px-4 py-4 text-center text-[10px] text-white/30">
-          Powered by Second Life Go · Your credentials go straight to the grid login server
-        </footer>
+          <div className="mt-3">
+            <LoginStatusCards
+              gridLabel={selectedGrid?.label}
+              proxyUrl={proxyUrl}
+              lastSession={lastSession}
+              accent={accent}
+            />
+          </div>
+
+          <p className="mt-3 text-center text-[10px] text-white/25">
+            Powered by Second Life Go · Your credentials go straight to the grid login server
+          </p>
+        </div>
       </div>
 
       <AnimatePresence>
