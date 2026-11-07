@@ -49,7 +49,7 @@ export default function ChatPanel({ onClose }) {
               <button
                 key={ch.id}
                 onClick={() => setChannel(ch.id)}
-                className={`p-1.5 rounded-lg transition-all ${channel === ch.id ? "bg-cyan-500/20 text-cyan-400" : "text-white/40 hover:text-white/70"}`}
+                className={`p-1.5 rounded-lg transition-all ${channel === ch.id ? "bg-neon-purple/20 text-neon-purple" : "text-white/40 hover:text-white/70"}`}
               >
                 <Icon className="w-4 h-4" />
               </button>
@@ -70,7 +70,7 @@ export default function ChatPanel({ onClose }) {
               <p className="text-gray-500 text-xs italic">{msg.text}</p>
             ) : (
               <div>
-                <span className="text-cyan-400 text-xs font-medium">{msg.sender}: </span>
+                <span className="text-neon-pink text-xs font-medium">{msg.sender}: </span>
                 <span className="text-white/80 text-xs">{msg.text}</span>
               </div>
             )}
@@ -87,7 +87,7 @@ export default function ChatPanel({ onClose }) {
           placeholder="Say something..."
           className="flex-1 bg-white/5 rounded-xl px-3 py-2 text-white text-xs placeholder-gray-500 focus:outline-none focus:bg-white/10"
         />
-        <button type="submit" className="p-2 text-cyan-400 hover:text-cyan-300">
+        <button type="submit" className="p-2 text-neon-purple hover:text-neon-pink">
           <Send className="w-4 h-4" />
         </button>
       </form>

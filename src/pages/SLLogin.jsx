@@ -72,7 +72,7 @@ export default function SLLogin() {
         <div className="w-full max-w-sm">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-cyan-500/20 ring-1 ring-white/10">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-gradient-to-br from-neon-purple via-neon-pink to-neon-blue flex items-center justify-center shadow-2xl shadow-neon-purple/30 ring-1 ring-white/10">
               <Globe className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Second Life</h1>
@@ -138,7 +138,7 @@ export default function SLLogin() {
                     className="w-full bg-gray-800/40 border border-gray-700/40 rounded-xl px-4 py-3 text-white text-left flex items-center justify-between text-sm hover:bg-gray-800/60 transition-all"
                   >
                     <span className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-cyan-400" />
+                      <Globe className="w-4 h-4 text-neon-purple" />
                       {selectedGrid?.label}
                     </span>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showGrid ? "rotate-180" : ""}`} />
@@ -151,7 +151,7 @@ export default function SLLogin() {
                           key={g.id}
                           type="button"
                           onClick={() => { setGrid(g.id); setShowGrid(false); }}
-                          className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-700/50 transition-colors ${grid === g.id ? "text-cyan-400 bg-gray-700/30" : "text-gray-300"}`}
+                          className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-700/50 transition-colors ${grid === g.id ? "text-neon-purple bg-gray-700/30" : "text-gray-300"}`}
                         >
                           {g.label}
                         </button>
@@ -175,8 +175,8 @@ export default function SLLogin() {
                 </div>
               )}
 
-              <details className="bg-cyan-500/5 border border-cyan-500/10 rounded-xl px-3 py-2">
-                <summary className="text-xs text-cyan-300/70 cursor-pointer select-none">
+              <details className="bg-neon-purple/5 border border-neon-purple/10 rounded-xl px-3 py-2">
+                <summary className="text-xs text-neon-purple/70 cursor-pointer select-none">
                   Live world proxy (optional)
                 </summary>
                 <div className="mt-2">
@@ -203,7 +203,7 @@ export default function SLLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl py-3.5 font-semibold text-sm hover:from-cyan-400 hover:to-blue-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 mt-2"
+                className="w-full bg-gradient-to-r from-neon-purple to-neon-pink text-white rounded-xl py-3.5 font-semibold text-sm hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-neon-purple/30 mt-2"
               >
                 {loading ? (
                   <>

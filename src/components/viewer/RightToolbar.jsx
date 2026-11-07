@@ -42,7 +42,7 @@ export default function RightToolbar({ onToolSelect, activeTool }) {
                   onClick={() => { onToolSelect(tool.id); setOpen(false); }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                     isActive
-                      ? "bg-cyan-500/20 text-cyan-400"
+                      ? "bg-neon-purple/20 text-neon-purple"
                       : "text-white/70 hover:bg-white/5 hover:text-white"
                   }`}
                 >

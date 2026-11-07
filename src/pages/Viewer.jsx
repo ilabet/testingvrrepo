@@ -11,11 +11,13 @@ import PeoplePanel from "@/components/viewer/PeoplePanel";
 import MiniMap from "@/components/viewer/MiniMap";
 import AppearancePanel from "@/components/viewer/AppearancePanel";
 import WorldScene from "@/components/viewer/WorldScene";
+import XRButton from "@/components/viewer/XRButton";
 import { useWorldStream } from "@/hooks/useWorldStream";
 
 export default function Viewer() {
   const [activeTool, setActiveTool] = useState(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
+  const [renderer, setRenderer] = useState(null);
   const joystickInput = useRef({ x: 0, y: 0 });
 
   // Live world-stream proxy connection (empty = sandbox scene fallback)
@@ -65,7 +67,8 @@ export default function Viewer() {
   return (
     <div className="fixed inset-0 bg-black overflow-hidden select-none">
       {/* 3D World */}
-      <WorldScene joystickInput={joystickInput} />
+      <WorldScene joystickInput={joystickInput} onRendererReady={setRenderer} />
+      <XRButton renderer={renderer} />
 
       {/* Left toolbar (top bar controls from PC viewer) */}
       <LeftToolbar onToolSelect={handleToolSelect} activeTool={activeTool} />

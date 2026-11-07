@@ -50,6 +50,11 @@ module.exports = {
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
   			},
+  			neon: {
+  				purple: 'hsl(var(--neon-purple))',
+  				pink: 'hsl(var(--neon-pink))',
+  				blue: 'hsl(var(--neon-blue))'
+  			},
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
