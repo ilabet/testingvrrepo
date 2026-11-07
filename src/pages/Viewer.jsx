@@ -76,7 +76,12 @@ export default function Viewer() {
   return (
     <div className="fixed inset-0 bg-black overflow-hidden select-none">
       {/* 3D World */}
-      <WorldScene joystickInput={joystickInput} onRendererReady={setRenderer} />
+      <WorldScene
+        joystickInput={joystickInput}
+        onRendererReady={setRenderer}
+        onSelectTool={handleToolSelect}
+        statusText={connected ? "LIVE · Second Life" : "Sandbox · Welcome Island"}
+      />
       <XRButton renderer={renderer} />
 
       {/* Left toolbar (top bar controls from PC viewer) */}

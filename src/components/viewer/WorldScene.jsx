@@ -1,19 +1,29 @@
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
+import { createVrHud } from "@/lib/vrHud";
 
 const NEON_PURPLE = 0xa855f7;
 const NEON_PINK = 0xec4899;
 const NEON_BLUE = 0x3b82f6;
 
-export default function WorldScene({ joystickInput, onRendererReady }) {
+export default function WorldScene({ joystickInput, onRendererReady, statusText, onSelectTool }) {
   const mountRef = useRef(null);
+  const statusRef = useRef(statusText || "Sandbox · Welcome Island");
+  const toolRef = useRef(onSelectTool);
+
+  useEffect(() => {
+    statusRef.current = statusText || "Sandbox · Welcome Island";
+  }, [statusText]);
+
+  useEffect(() => {
+    toolRef.current = onSelectTool;
+  }, [onSelectTool]);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
-    // Scene — neon night aesthetic
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08060f);
     scene.fog = new THREE.Fog(0x140a24, 45, 220);
@@ -29,15 +39,15 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType("local-floor");
+    renderer.xr.setFoveation(1);
     mount.appendChild(renderer.domElement);
     onRendererReady?.(renderer);
 
-    // Player rig — camera + controllers live here; moved for VR locomotion
+    // Player rig — flat camera and XR headset both live here.
     const player = new THREE.Group();
     scene.add(player);
     player.add(camera);
 
-    // Lighting
     scene.add(new THREE.AmbientLight(0x6a4b8a, 0.9));
     const key = new THREE.DirectionalLight(0xffc0e0, 0.9);
     key.position.set(20, 30, 10);
@@ -51,7 +61,6 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
     fillPink.position.set(10, 5, 8);
     scene.add(fillPink);
 
-    // Ground + neon grid
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(220, 220),
       new THREE.MeshStandardMaterial({ color: 0x140b26, roughness: 0.95, metalness: 0.1 })
@@ -64,7 +73,6 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Avatar
     const avatarGroup = new THREE.Group();
     const body = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.3, 1, 8, 16),
@@ -82,7 +90,6 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
     avatarGroup.add(head);
     scene.add(avatarGroup);
 
-    // Environment
     const addTree = (x, z) => {
       const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.15, 0.2, 2, 8),
@@ -129,12 +136,32 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
     water.position.set(20, 0.05, -20);
     scene.add(water);
 
-    // XR controllers (Meta Quest / Vive / SteamVR via WebXR)
+    // ---- In-world VR HUD ----
+    let fps = 60;
+    const hud = createVrHud({
+      getStatus: () => `${statusRef.current}\n${Math.round(fps)} fps · WebXR`,
+      actions: {
+        minimap: () => toolRef.current?.("minimap"),
+        recenter: () => {
+          player.position.set(0, 0, 0);
+          player.rotation.set(0, 0, 0);
+        },
+        exit: () => renderer.xr.getSession()?.end(),
+      },
+    });
+    camera.add(hud.mesh);
+
+    // ---- XR controllers ----
     const controllerModelFactory = new XRControllerModelFactory();
     const controllers = [0, 1].map((i) => {
       const controller = renderer.xr.getController(i);
+      controller.userData.hudIndex = -1;
       controller.addEventListener("connected", (e) => { controller.userData.inputSource = e.data; });
       controller.addEventListener("disconnected", () => { controller.userData.inputSource = null; });
+      controller.addEventListener("selectstart", () => {
+        const idx = controller.userData.hudIndex;
+        if (idx >= 0) hud.selectAt(idx);
+      });
       const line = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
         new THREE.LineBasicMaterial({ color: NEON_PINK })
@@ -149,35 +176,103 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
       return controller;
     });
 
+    // ---- Session lifecycle: correct head pose + rig reset ----
+    const camOffset = new THREE.Vector3(0, 4, 8);
+
+    const onSessionStart = () => {
+      player.position.set(0, 0, 0);
+      player.rotation.set(0, 0, 0);
+      camera.position.set(0, 1.6, 0);
+      camera.rotation.set(0, 0, 0);
+      hud.mesh.visible = true;
+    };
+    const onSessionEnd = () => {
+      hud.mesh.visible = false;
+      camera.position.copy(camOffset);
+      camera.rotation.set(0, 0, 0);
+      avatarGroup.position.set(0, 0, 0);
+      avatarGroup.rotation.set(0, 0, 0);
+    };
+    renderer.xr.addEventListener("sessionstart", onSessionStart);
+    renderer.xr.addEventListener("sessionend", onSessionEnd);
+
+    // ---- Locomotion: left stick moves, right stick snap-turns ----
     const clock = new THREE.Clock();
     const forward = new THREE.Vector3();
     const right = new THREE.Vector3();
     const UP = new THREE.Vector3(0, 1, 0);
-    const camOffset = new THREE.Vector3(0, 4, 8);
 
     const updateLocomotion = (dt) => {
-      for (const c of controllers) {
-        const gp = c.userData.inputSource?.gamepad;
-        if (!gp) continue;
+      controllers.forEach((controller, index) => {
+        const gp = controller.userData.inputSource?.gamepad;
+        if (!gp) return;
         const ax = gp.axes.length >= 4 ? gp.axes[2] : gp.axes[0];
         const ay = gp.axes.length >= 4 ? gp.axes[3] : gp.axes[1];
-        if (!ax && !ay) continue;
-        if (Math.abs(ax) < 0.15 && Math.abs(ay) < 0.15) continue;
+        if (typeof ax !== "number" || typeof ay !== "number") return;
+
+        if (index === 1) {
+          if (Math.abs(ax) > 0.7) {
+            if (controller.userData.turnReady !== false) {
+              player.rotation.y -= Math.sign(ax) * (Math.PI / 6);
+              controller.userData.turnReady = false;
+            }
+          } else if (Math.abs(ax) < 0.3) {
+            controller.userData.turnReady = true;
+          }
+          return;
+        }
+
+        if (Math.abs(ax) < 0.15 && Math.abs(ay) < 0.15) return;
         camera.getWorldDirection(forward);
         forward.y = 0;
         forward.normalize();
         right.crossVectors(forward, UP).normalize();
-        const speed = 3.0 * dt;
+        const speed = 2.4 * dt;
         player.position.addScaledVector(forward, -ay * speed);
         player.position.addScaledVector(right, ax * speed);
-      }
+      });
     };
 
+    // ---- Controller ray → HUD hit testing ----
+    const raycaster = new THREE.Raycaster();
+    const rotMatrix = new THREE.Matrix4();
+    const rayOrigin = new THREE.Vector3();
+    const rayDir = new THREE.Vector3();
+
+    const updateHudPointer = (controller) => {
+      controller.updateMatrixWorld();
+      rotMatrix.identity().extractRotation(controller.matrixWorld);
+      rayOrigin.setFromMatrixPosition(controller.matrixWorld);
+      rayDir.set(0, 0, -1).applyMatrix4(rotMatrix);
+      raycaster.set(rayOrigin, rayDir);
+      const hit = raycaster.intersectObject(hud.mesh, false)[0];
+      controller.userData.hudIndex = hit?.uv ? hud.hitTest(hit.uv.x, hit.uv.y) : -1;
+    };
+
+    let hudTick = 0;
+    let frameCount = 0;
+    let fpsTime = 0;
+
     renderer.setAnimationLoop(() => {
-      const dt = Math.min(clock.getDelta(), 0.1);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      frameCount += 1;
+      fpsTime += dt;
+      if (fpsTime >= 0.5) {
+        fps = frameCount / fpsTime;
+        frameCount = 0;
+        fpsTime = 0;
+      }
+
       if (renderer.xr.isPresenting) {
         avatarGroup.visible = false;
         updateLocomotion(dt);
+        controllers.forEach(updateHudPointer);
+        hud.setHover(Math.max(...controllers.map((c) => c.userData.hudIndex)));
+        hudTick += dt;
+        if (hudTick > 0.4) {
+          hudTick = 0;
+          hud.refresh();
+        }
       } else {
         avatarGroup.visible = true;
         const { x, y } = joystickInput.current || { x: 0, y: 0 };
@@ -191,6 +286,7 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
         camera.position.lerp(targetCamPos, 0.05);
         camera.lookAt(avatarGroup.position.x, avatarGroup.position.y + 1.5, avatarGroup.position.z);
       }
+
       renderer.render(scene, camera);
     });
 
@@ -203,7 +299,11 @@ export default function WorldScene({ joystickInput, onRendererReady }) {
 
     return () => {
       renderer.setAnimationLoop(null);
+      renderer.xr.removeEventListener("sessionstart", onSessionStart);
+      renderer.xr.removeEventListener("sessionend", onSessionEnd);
       window.removeEventListener("resize", handleResize);
+      camera.remove(hud.mesh);
+      hud.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
       renderer.dispose();
     };

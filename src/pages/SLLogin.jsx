@@ -297,7 +297,7 @@ export default function SLLogin() {
                         type="text"
                         value={proxyUrl}
                         onChange={(e) => setProxyUrl(e.target.value)}
-                        placeholder="https://your-proxy.example.com"
+                        placeholder="https://your-service.up.railway.app"
                         className={INPUT}
                       />
                       <p className="mt-1 pl-1 text-[10px] text-white/35">
