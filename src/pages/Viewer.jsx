@@ -13,6 +13,7 @@ import AppearancePanel from "@/components/viewer/AppearancePanel";
 import WorldScene from "@/components/viewer/WorldScene";
 import XRButton from "@/components/viewer/XRButton";
 import { useWorldStream } from "@/hooks/useWorldStream";
+import { base44 } from "@/api/base44Client";
 
 export default function Viewer() {
   const [activeTool, setActiveTool] = useState(null);
@@ -22,7 +23,15 @@ export default function Viewer() {
 
   // Live world-stream proxy connection (empty = sandbox scene fallback)
   const wsUrl = localStorage.getItem("sl_ws_url") || "";
-  const { connected, send } = useWorldStream(wsUrl);
+
+  // Alert Discord when the live proxy connection drops unexpectedly
+  const handleStreamDrop = useCallback((info) => {
+    base44.functions
+      .invoke("stream_drop_alert", { proxy_url: wsUrl, reason: info?.reason || "connection lost" })
+      .catch(() => {});
+  }, [wsUrl]);
+
+  const { connected, send } = useWorldStream(wsUrl, handleStreamDrop);
 
   const handleJoystickMove = useCallback((pos) => {
     joystickInput.current = pos;

@@ -19,13 +19,18 @@ import { useEffect, useRef, useState, useCallback } from "react";
  *   { type: "chat", channel: "local", text }
  *   { type: "teleport", region, x, y, z }
  */
-export function useWorldStream(wsUrl) {
+export function useWorldStream(wsUrl, onDrop) {
   const [connected, setConnected] = useState(false);
   const [lastError, setLastError] = useState(null);
   const [lastEvent, setLastEvent] = useState(null);
   const wsRef = useRef(null);
   const handlers = useRef({});
   const queue = useRef([]);
+  const dropRef = useRef(onDrop);
+
+  useEffect(() => {
+    dropRef.current = onDrop;
+  }, [onDrop]);
 
   useEffect(() => {
     if (!wsUrl) {
@@ -33,6 +38,7 @@ export function useWorldStream(wsUrl) {
       return;
     }
 
+    let intentional = false;
     let ws;
     try {
       ws = new WebSocket(wsUrl);
@@ -50,7 +56,12 @@ export function useWorldStream(wsUrl) {
         ws.send(JSON.stringify(queue.current.shift()));
       }
     };
-    ws.onclose = () => setConnected(false);
+    ws.onclose = (ev) => {
+      setConnected(false);
+      if (!intentional) {
+        dropRef.current?.({ code: ev.code, reason: ev.reason || "connection closed" });
+      }
+    };
     ws.onerror = () => setLastError("WebSocket error");
     ws.onmessage = (e) => {
       let msg;
@@ -65,6 +76,7 @@ export function useWorldStream(wsUrl) {
     };
 
     return () => {
+      intentional = true;
       ws.close();
       wsRef.current = null;
       setConnected(false);
