@@ -113,6 +113,20 @@ function parseXmlRpc(xml) {
     if (!s.startsWith(close, i)) throw new Error('Expected </' + tag + '>');
     i += close.length;
   };
+  // Reads the text of a simple tag, tolerating self-closing tags (<string/>).
+  const readText = (tag) => {
+    const openEnd = s.indexOf('>', i);
+    if (openEnd === -1) throw new Error('Unclosed <' + tag + '>');
+    const selfClosing = s[openEnd - 1] === '/';
+    i = openEnd + 1;
+    if (selfClosing) return '';
+    const close = '</' + tag + '>';
+    const end = s.indexOf(close, i);
+    if (end === -1) throw new Error('Unclosed <' + tag + '>');
+    const text = s.slice(i, end);
+    i = end + close.length;
+    return text;
+  };
   const parseValue = () => {
     skipWs();
     if (!s.startsWith('<value', i)) throw new Error('Expected <value>');
@@ -124,26 +138,15 @@ function parseXmlRpc(xml) {
     } else if (s.startsWith('<array', i)) {
       result = parseArray();
     } else if (s.startsWith('<string', i)) {
-      i = s.indexOf('>', i) + 1;
-      const end = s.indexOf('</string>', i);
-      result = decodeXml(s.slice(i, end));
-      i = end + '</string>'.length;
+      const text = readText('string');
+      result = decodeXml(text.replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/, '$1'));
     } else if (s.startsWith('<boolean', i)) {
-      i = s.indexOf('>', i) + 1;
-      const end = s.indexOf('</boolean>', i);
-      result = s.slice(i, end).trim() === '1';
-      i = end + '</boolean>'.length;
+      result = readText('boolean').trim() === '1';
     } else if (s.startsWith('<int', i) || s.startsWith('<i4', i)) {
-      const tag = s.slice(i + 1, s.indexOf('>', i));
-      i = s.indexOf('>', i) + 1;
-      const end = s.indexOf('</' + tag + '>', i);
-      result = parseInt(s.slice(i, end).trim(), 10);
-      i = end + ('</' + tag + '>').length;
+      const tag = s.slice(i + 1, s.indexOf('>', i)).replace(/\s[\s\S]*$/, '').replace(/\/$/, '');
+      result = parseInt(readText(tag).trim(), 10);
     } else if (s.startsWith('<double', i)) {
-      i = s.indexOf('>', i) + 1;
-      const end = s.indexOf('</double>', i);
-      result = parseFloat(s.slice(i, end));
-      i = end + '</double>'.length;
+      result = parseFloat(readText('double').trim());
     } else {
       const end = s.indexOf('</value>', i);
       result = decodeXml(s.slice(i, end).trim());
@@ -200,8 +203,6 @@ function escapeXml(s) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
     const { first_name, last_name, password, grid, custom_login_uri } = body;
@@ -247,11 +248,32 @@ Deno.serve(async (req) => {
     });
 
     const xmlText = await resp.text();
+
+    // The grid answers with an HTML error page instead of XML-RPC when it
+    // refuses or throttles a login attempt (e.g. "Your request failed to rez.").
+    if (!/<methodResponse/i.test(xmlText)) {
+      const plain = decodeXml(xmlText.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+      const refused = /failed to rez|internal server error/i.test(plain);
+      return Response.json({
+        success: false,
+        message: refused
+          ? 'The grid refused this login attempt ("failed to rez"). It returns that when too many attempts come from the same server or its login service is busy. Wait a few minutes, then try again.'
+          : plain || 'The grid returned an unexpected response',
+        grid_status: resp.status,
+        raw: xmlText.slice(0, 500),
+      }, { status: 502 });
+    }
+
     let result;
     try {
       result = parseXmlRpc(xmlText) || {};
     } catch (_e) {
-      return Response.json({ success: false, message: 'The grid returned an unreadable login response', raw: xmlText.slice(0, 500) }, { status: 502 });
+      return Response.json({
+        success: false,
+        message: 'The grid sent a login response this viewer could not read',
+        grid_status: resp.status,
+        raw: xmlText.slice(0, 500),
+      }, { status: 502 });
     }
 
     const loginOk = result.login === true || result.login === 'true' || result.login === 1;

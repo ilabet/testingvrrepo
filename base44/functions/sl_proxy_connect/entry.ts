@@ -3,8 +3,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const { proxy_base_url, first_name, last_name, password, grid, custom_login_uri } = await req.json();
     if (!proxy_base_url || !first_name || !password) {
