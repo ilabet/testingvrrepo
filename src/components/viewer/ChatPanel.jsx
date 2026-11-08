@@ -8,21 +8,27 @@ const CHANNELS = [
   { id: "im", label: "IM", icon: Hash },
 ];
 
-export default function ChatPanel({ onClose }) {
+export default function ChatPanel({ onClose, messages: liveMessages, onSend }) {
   const [messages, setMessages] = useState([
     { id: 1, sender: "System", text: "Welcome to the region.", time: "now", system: true },
   ]);
+  const shown = liveMessages ?? messages;
   const [input, setInput] = useState("");
   const [channel, setChannel] = useState("local");
   const scrollRef = useRef(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
-  }, [messages]);
+  }, [shown]);
 
   const sendMessage = (e) => {
     e.preventDefault();
     if (!input.trim()) return;
+    if (onSend) {
+      onSend(input.trim(), channel);
+      setInput("");
+      return;
+    }
     setMessages((prev) => [
       ...prev,
       { id: Date.now(), sender: "You", text: input, time: "now" },
@@ -64,7 +70,7 @@ export default function ChatPanel({ onClose }) {
 
       {/* Messages */}
       <div ref={scrollRef} className="p-3 space-y-2 overflow-y-auto" style={{ maxHeight: "30vh" }}>
-        {messages.map((msg) => (
+        {shown.map((msg) => (
           <div key={msg.id} className={msg.system ? "text-center" : ""}>
             {msg.system ? (
               <p className="text-gray-500 text-xs italic">{msg.text}</p>

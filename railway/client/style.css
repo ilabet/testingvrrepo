@@ -1,0 +1,33 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; color: #e2e8f0; font: 15px/1.4 system-ui, sans-serif; }
+#app canvas { display: block; }
+[hidden] { display: none !important; }
+button { background: #2b6cb0; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+button.secondary { background: #4a5568; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.on { background: #38a169; }
+#login { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 30% 20%, #1e3a5f, #0b1020 70%); padding: 16px; }
+.card { width: min(420px, 100%); background: rgba(20, 26, 40, 0.95); border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+.card h1 { margin: 0 0 4px; font-size: 26px; }
+.sub { margin: 0 0 16px; color: #a0aec0; }
+.fine { font-size: 12px; color: #718096; margin-bottom: 0; }
+label { display: block; margin-bottom: 10px; font-size: 13px; color: #a0aec0; }
+input, select { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; border-radius: 8px; border: 1px solid #2d3748; background: #0f1524; color: #e2e8f0; font: inherit; }
+#customGrid { margin-bottom: 10px; }
+.row { display: flex; gap: 8px; margin-top: 8px; }
+.row button { flex: 1; }
+#loginError { color: #feb2b2; min-height: 1.4em; }
+#topbar { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#topbar button { padding: 6px 10px; background: rgba(43, 108, 176, 0.85); }
+#topbar button.on { background: #38a169; }
+#status, #nearby { background: rgba(0, 0, 0, 0.5); padding: 6px 10px; border-radius: 8px; }
+#chat { position: fixed; left: 10px; bottom: 10px; width: min(460px, calc(100% - 20px)); }
+#log { max-height: 220px; overflow-y: auto; background: rgba(0, 0, 0, 0.45); border-radius: 8px 8px 0 0; padding: 8px; font-size: 14px; text-shadow: 0 1px 2px #000; }
+#chatInput { margin: 0; border-radius: 0 0 8px 8px; background: rgba(0, 0, 0, 0.6); }
+#notices { position: fixed; top: 56px; right: 10px; width: min(320px, calc(100% - 20px)); display: flex; flex-direction: column; gap: 8px; }
+.notice { background: rgba(20, 26, 40, 0.92); border-radius: 10px; padding: 10px; }
+.notice p { margin: 0 0 8px; }
+.notice button { margin: 0 6px 6px 0; padding: 5px 10px; }
+#help { position: fixed; right: 10px; bottom: 60px; max-width: 300px; margin: 0; font-size: 12px; color: #e2e8f0; background: rgba(0, 0, 0, 0.4); padding: 6px 8px; border-radius: 8px; }
+#vrButton { z-index: 10; }
+@media (max-width: 700px) { #help { display: none; } }

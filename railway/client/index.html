@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Second Life VR</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <section id="login">
+    <form id="loginForm" class="card" autocomplete="on">
+      <h1>Second Life VR</h1>
+      <p class="sub">WebXR viewer for Quest, Vive, Index and other headsets.</p>
+      <div id="slFields">
+        <label>Username <input id="username" name="username" autocomplete="username" placeholder="firstname.lastname or username" /></label>
+        <label>Password <input id="password" name="password" type="password" autocomplete="current-password" /></label>
+        <label>Grid
+          <select id="grid">
+            <option value="agni">Second Life (main grid)</option>
+            <option value="aditi">Second Life Beta (Aditi)</option>
+            <option value="custom">Custom login URL</option>
+          </select>
+        </label>
+        <input id="customGrid" placeholder="https://example.org/login" hidden />
+        <label>Start location <input id="start" placeholder="last, home or uri:Region&amp;128&amp;128&amp;30" value="last" /></label>
+        <label id="mfaRow" hidden>Authenticator code <input id="mfa" inputmode="numeric" autocomplete="one-time-code" /></label>
+      </div>
+      <p id="demoNote" class="sub" hidden>This bridge runs in demo-only mode.</p>
+      <div class="row">
+        <button id="loginBtn" type="submit">Log in</button>
+        <button id="demoBtn" type="button" class="secondary">Try demo world</button>
+      </div>
+      <p id="loginError" role="alert"></p>
+      <p class="fine">Your password is sent only to this bridge server, which logs in to Second Life on your behalf. Only use a bridge you host or trust. Not affiliated with Linden Lab.</p>
+    </form>
+  </section>
+
+  <section id="hud" hidden>
+    <div id="topbar">
+      <span id="status"></span><span id="nearby"></span>
+      <button id="flyBtn">Fly (F)</button>
+      <button id="runBtn">Run</button>
+      <button id="standBtn">Stand</button>
+      <button id="homeBtn">Home</button>
+      <button id="logoutBtn">Log out</button>
+    </div>
+    <div id="notices"></div>
+    <div id="chat">
+      <div id="log"></div>
+      <form id="chatForm"><input id="chatInput" placeholder="Say something (Enter)" autocomplete="off" maxlength="1023" /></form>
+    </div>
+    <p id="help">WASD move, drag to look, Space jump/up, C down, F fly, Shift run, click to touch, double-click to sit, Esc stand, /tp Region/x/y/z</p>
+  </section>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

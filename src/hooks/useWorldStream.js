@@ -8,16 +8,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
  * When wsUrl is empty, returns connected=false and the caller falls back to
  * the local simulated scene.
  *
- * Expected inbound frame shapes (defined by your proxy):
- *   { type: "presence", avatars: [{ id, name, x, y, z }] }
- *   { type: "objects",  objects: [{ id, x, y, z, ... }] }
- *   { type: "chat",     id, sender, text, time }
- *   { type: "teleport", region, x, y, z }
- *   { type: "region",   name, size, position }
- * Outbound:
- *   { type: "agent_update", x, y, z, vel_x, vel_y, vel_z, yaw, running, flying }
- *   { type: "chat", channel: "local", text }
- *   { type: "teleport", region, x, y, z }
+ * Protocol (see railway/README.md): the bridge sends assetToken, loginOk, region,
+ * terrain, objects { upsert, remove }, avatars, chat, im, lure, dialog, teleport and
+ * disconnected frames; the app sends move, chat, im, teleport, home, touch, sit,
+ * stand, acceptLure, dialogReply and logout. Register "*" with on() to receive
+ * every frame.
  */
 export function useWorldStream(wsUrl, onDrop) {
   const [connected, setConnected] = useState(false);
@@ -73,6 +68,7 @@ export function useWorldStream(wsUrl, onDrop) {
       setLastEvent(msg);
       const handler = handlers.current[msg.type];
       if (handler) handler(msg);
+      handlers.current["*"]?.(msg);
     };
 
     return () => {
