@@ -1,16 +1,24 @@
 {
   "name": "secondlife-go-railway-backend",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Railway backend for the SecondLife Go viewer: grid login bridge + world-stream relay",
-  "main": "server.js",
+  "version": "2.0.0",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node src/server.js",
+    "demo": "DEMO_ONLY=1 node src/server.js",
+    "test": "node --test test/"
   },
+  "license": "MIT",
+  "description": "Railway backend for the SecondLife Go viewer: Second Life protocol bridge (node-metaverse), world stream and asset conversion",
+  "dependencies": {
+    "@caspertech/node-metaverse": "^0.8.24",
+    "express": "^5.3.0",
+    "sharp": "^0.35.5",
+    "three": "^0.170.0",
+    "ws": "^8.22.1"
+  },
+  "private": true,
+  "type": "module",
   "engines": {
     "node": ">=20"
-  },
-  "dependencies": {
-    "ws": "^8.18.0"
   }
 }

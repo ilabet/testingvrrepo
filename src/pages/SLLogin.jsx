@@ -19,6 +19,7 @@ const GRIDS = [
   { id: "aditi", label: "Second Life (Beta Grid)" },
   { id: "osgrid", label: "OSGrid" },
   { id: "custom", label: "Custom Grid..." },
+  { id: "demo", label: "Demo World (no account, needs proxy)" },
 ];
 
 const INPUT =
@@ -137,6 +138,10 @@ export default function SLLogin() {
       // If a live proxy is configured, log in through it (full world stream);
       // otherwise use the direct grid login bridge.
       const usingProxy = Boolean(proxyUrl.trim());
+      if (grid === "demo" && !usingProxy) {
+        setError("The demo world runs on the live world proxy: enter its URL first.");
+        return;
+      }
       const fnName = usingProxy ? "sl_proxy_connect" : "sl_connect";
       const payload = usingProxy
         ? { proxy_base_url: proxyUrl.trim(), first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri }
@@ -230,7 +235,7 @@ export default function SLLogin() {
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           placeholder="First"
-                          required
+                          required={grid !== "demo"}
                           className={INPUT}
                         />
                       </div>
@@ -241,7 +246,7 @@ export default function SLLogin() {
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           placeholder="Resident"
-                          required
+                          required={grid !== "demo"}
                           className={INPUT}
                         />
                       </div>
@@ -255,7 +260,7 @@ export default function SLLogin() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
-                          required
+                          required={grid !== "demo"}
                           className={`${INPUT} pr-10`}
                         />
                         <button

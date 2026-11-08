@@ -3,12 +3,13 @@ import * as THREE from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
 import { createVrHud } from "@/lib/vrHud";
 import { loadControls } from "@/lib/vrControls";
+import { createLiveWorld } from "@/lib/sl/liveWorld";
 
 const NEON_PURPLE = 0xa855f7;
 const NEON_PINK = 0xec4899;
 const NEON_BLUE = 0x3b82f6;
 
-export default function WorldScene({ joystickInput, onRendererReady, statusText, onSelectTool }) {
+export default function WorldScene({ joystickInput, onRendererReady, statusText, onSelectTool, stream, liveOrigin, onLiveStatus }) {
   const mountRef = useRef(null);
   const statusRef = useRef(statusText || "Sandbox · Welcome Island");
   const toolRef = useRef(onSelectTool);
@@ -22,6 +23,18 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
   }, [onSelectTool]);
 
   const controlsRef = useRef(loadControls());
+  const streamRef = useRef(stream);
+  const liveOriginRef = useRef(liveOrigin);
+  const liveStatusRef = useRef(onLiveStatus);
+  const liveHandlerRef = useRef(null);
+  streamRef.current = stream;
+  liveOriginRef.current = liveOrigin;
+  liveStatusRef.current = onLiveStatus;
+
+  const streamOn = stream?.on;
+  useEffect(() => {
+    streamOn?.("*", (msg) => liveHandlerRef.current?.(msg));
+  }, [streamOn]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -36,6 +49,8 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     if (!mount) return;
 
     const scene = new THREE.Scene();
+    const sandbox = new THREE.Group();
+    scene.add(sandbox);
     scene.background = new THREE.Color(0x08060f);
     scene.fog = new THREE.Fog(0x140a24, 45, 220);
 
@@ -59,18 +74,18 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     scene.add(player);
     player.add(camera);
 
-    scene.add(new THREE.AmbientLight(0x6a4b8a, 0.9));
+    sandbox.add(new THREE.AmbientLight(0x6a4b8a, 0.9));
     const key = new THREE.DirectionalLight(0xffc0e0, 0.9);
     key.position.set(20, 30, 10);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
-    scene.add(key);
+    sandbox.add(key);
     const fillPurple = new THREE.PointLight(NEON_PURPLE, 45, 70, 2);
     fillPurple.position.set(-8, 6, -6);
-    scene.add(fillPurple);
+    sandbox.add(fillPurple);
     const fillPink = new THREE.PointLight(NEON_PINK, 45, 70, 2);
     fillPink.position.set(10, 5, 8);
-    scene.add(fillPink);
+    sandbox.add(fillPink);
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(220, 220),
@@ -78,11 +93,11 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
-    scene.add(ground);
+    sandbox.add(ground);
 
     const gridHelper = new THREE.GridHelper(220, 55, NEON_PURPLE, 0x3a1f5e);
     gridHelper.position.y = 0.01;
-    scene.add(gridHelper);
+    sandbox.add(gridHelper);
 
     const avatarGroup = new THREE.Group();
     const body = new THREE.Mesh(
@@ -99,7 +114,7 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     head.position.y = 2.1;
     head.castShadow = true;
     avatarGroup.add(head);
-    scene.add(avatarGroup);
+    sandbox.add(avatarGroup);
 
     const addTree = (x, z) => {
       const trunk = new THREE.Mesh(
@@ -108,14 +123,14 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       );
       trunk.position.set(x, 1, z);
       trunk.castShadow = true;
-      scene.add(trunk);
+      sandbox.add(trunk);
       const leaves = new THREE.Mesh(
         new THREE.SphereGeometry(1, 10, 10),
         new THREE.MeshStandardMaterial({ color: NEON_PURPLE, emissive: NEON_PURPLE, emissiveIntensity: 0.4, roughness: 0.4 })
       );
       leaves.position.set(x, 2.8, z);
       leaves.castShadow = true;
-      scene.add(leaves);
+      sandbox.add(leaves);
     };
 
     const addBuilding = (x, z, w, h, d, color) => {
@@ -126,7 +141,7 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       mesh.position.set(x, h / 2, z);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      scene.add(mesh);
+      sandbox.add(mesh);
     };
 
     [-15, -8, 8, 15, -12, 12, -20, 20].forEach((x, i) => {
@@ -145,7 +160,69 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     );
     water.rotation.x = -Math.PI / 2;
     water.position.set(20, 0.05, -20);
-    scene.add(water);
+    sandbox.add(water);
+
+    // ---- Live Second Life world (streamed by the Railway bridge) ----
+    const SKY = 0x9cc9f0;
+    const liveLights = new THREE.Group();
+    liveLights.add(new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 1.2));
+    const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
+    sun.position.set(40, 100, 30);
+    liveLights.add(sun);
+    liveLights.visible = false;
+    scene.add(liveLights);
+    let live = null;
+    let desktopYaw = 0;
+    const keys = new Set();
+    const pending = { up: 0 };
+    const sendLive = (msg) => streamRef.current?.send(msg);
+    const enterLive = () => {
+      live = createLiveWorld({ scene, origin: liveOriginRef.current || "", send: sendLive, onStatus: (name) => liveStatusRef.current?.(name) });
+      sandbox.visible = false;
+      liveLights.visible = true;
+      scene.background = new THREE.Color(SKY);
+      scene.fog = new THREE.Fog(SKY, 80, 320);
+    };
+    liveHandlerRef.current = (msg) => {
+      if (!live) enterLive();
+      live.handle(msg);
+    };
+    const onKeyDown = (e) => {
+      if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA") return;
+      keys.add(e.code);
+      if (live && e.code === "KeyF") live.state.fly = !live.state.fly;
+    };
+    const onKeyUp = (e) => keys.delete(e.code);
+    const onAction = (e) => {
+      if (!live) return;
+      const action = e.detail?.action;
+      if (action === "fly") live.state.fly = !live.state.fly;
+      if (action === "jump") pending.up = performance.now() + 400;
+      if (action === "stand") sendLive({ type: "stand" });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("sl-action", onAction);
+
+    const pickRay = new THREE.Raycaster();
+    let pointerStart = null;
+    const pickAt = (e, type) => {
+      if (!live) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      pickRay.setFromCamera(ndc, camera);
+      const hit = live.pick(pickRay);
+      if (hit) sendLive({ type, id: hit.localId });
+    };
+    const onPointerDown = (e) => { pointerStart = [e.clientX, e.clientY]; };
+    const onPointerUp = (e) => {
+      if (pointerStart && Math.hypot(e.clientX - pointerStart[0], e.clientY - pointerStart[1]) < 6) pickAt(e, "touch");
+      pointerStart = null;
+    };
+    const onDblClick = (e) => pickAt(e, "sit");
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("dblclick", onDblClick);
 
     // ---- In-world VR HUD ----
     let fps = 60;
@@ -173,6 +250,18 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       controller.addEventListener("selectstart", () => {
         const idx = controller.userData.hudIndex;
         if (idx >= 0) hud.selectAt(idx);
+        else if (live) {
+          pickRay.setFromXRController(controller);
+          const hit = live.pick(pickRay);
+          if (hit) sendLive({ type: "touch", id: hit.localId });
+        }
+      });
+      controller.addEventListener("squeezestart", () => {
+        if (!live) return;
+        if (live.state.sitting) return sendLive({ type: "stand" });
+        pickRay.setFromXRController(controller);
+        const hit = live.pick(pickRay);
+        if (hit) sendLive({ type: "sit", id: hit.localId });
       });
       const line = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
@@ -233,6 +322,84 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       if (pressEdge(controller, 5)) {
         hud.mesh.visible = !hud.mesh.visible;
         controlsRef.current = { ...controlsRef.current, showHud: hud.mesh.visible };
+      }
+    };
+
+    // Live mode in XR: sticks drive the Second Life avatar; the rig follows it.
+    const liveXrInput = (dt) => {
+      const cfg = controlsRef.current;
+      const input = { fwd: 0, strafe: 0, up: performance.now() < pending.up ? 1 : 0, run: false };
+      controllers.forEach((controller, index) => {
+        const gp = controller.userData.inputSource?.gamepad;
+        if (!gp) return;
+        if (pressEdge(controller, 5)) {
+          hud.mesh.visible = !hud.mesh.visible;
+          controlsRef.current = { ...controlsRef.current, showHud: hud.mesh.visible };
+        }
+        const ax = gp.axes.length >= 4 ? gp.axes[2] : gp.axes[0];
+        const ay = gp.axes.length >= 4 ? gp.axes[3] : gp.axes[1];
+        if (typeof ax !== "number" || typeof ay !== "number") return;
+        if (gp.buttons?.[4]?.pressed) input.up = 1;
+        if (index === 1) {
+          if (live.state.fly && Math.abs(ay) > 0.3) input.up = -ay;
+          if (cfg.turnMode === "smooth") {
+            if (Math.abs(ax) > 0.15) rotateRig(-ax * 2.2 * dt);
+          } else if (Math.abs(ax) > 0.7) {
+            if (controller.userData.turnReady !== false) {
+              rotateRig(-Math.sign(ax) * ((cfg.snapAngle || 30) * Math.PI) / 180);
+              controller.userData.turnReady = false;
+            }
+          } else if (Math.abs(ax) < 0.3) {
+            controller.userData.turnReady = true;
+          }
+          return;
+        }
+        if (pressEdge(controller, 3)) live.state.fly = !live.state.fly;
+        if (Math.hypot(ax, ay) > 0.15) {
+          input.fwd = -ay;
+          input.strafe = ax;
+          input.run = Math.hypot(ax, ay) > 0.92;
+        }
+      });
+      return input;
+    };
+
+    const headPos = new THREE.Vector3();
+    const rotateRig = (angle) => {
+      camera.getWorldPosition(headPos);
+      player.position.sub(headPos).applyAxisAngle(UP, angle).add(headPos);
+      player.rotation.y += angle;
+    };
+
+    const updateLive = (dt) => {
+      if (renderer.xr.isPresenting) {
+        live.setSelfVisible(false);
+        const input = liveXrInput(dt);
+        const feet = live.update(dt, { input, yaw: live.yawFromCamera(camera) });
+        if (feet) {
+          camera.getWorldPosition(headPos);
+          player.position.set(feet.x - (headPos.x - player.position.x), feet.y, feet.z - (headPos.z - player.position.z));
+        }
+        return;
+      }
+      live.setSelfVisible(true);
+      const joy = joystickInput.current || { x: 0, y: 0 };
+      const turn = (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) - (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (Math.abs(joy.x) > 0.2 ? joy.x : 0);
+      desktopYaw += turn * 1.8 * dt;
+      const input = {
+        fwd: (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0) + (Math.abs(joy.y) > 0.2 ? joy.y : 0),
+        strafe: (keys.has("KeyE") ? 1 : 0) - (keys.has("KeyQ") ? 1 : 0),
+        up: (keys.has("Space") || performance.now() < pending.up ? 1 : 0) - (keys.has("KeyC") ? 1 : 0),
+        run: keys.has("ShiftLeft") || keys.has("ShiftRight"),
+      };
+      const feet = live.update(dt, { input, yaw: desktopYaw });
+      player.position.set(0, 0, 0);
+      player.rotation.set(0, 0, 0);
+      if (feet) {
+        const back = new THREE.Vector3(Math.cos(desktopYaw), 0, -Math.sin(desktopYaw)).multiplyScalar(-5);
+        const target = feet.clone().add(back).add(new THREE.Vector3(0, 2.6, 0));
+        camera.position.lerp(target, 1 - Math.exp(-dt * 6));
+        camera.lookAt(feet.x, feet.y + 1.5, feet.z);
       }
     };
 
@@ -314,7 +481,18 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
         fpsTime = 0;
       }
 
-      if (renderer.xr.isPresenting) {
+      if (live) {
+        updateLive(dt);
+        if (renderer.xr.isPresenting) {
+          controllers.forEach(updateHudPointer);
+          hud.setHover(Math.max(...controllers.map((c) => c.userData.hudIndex)));
+          hudTick += dt;
+          if (hudTick > 0.4) {
+            hudTick = 0;
+            hud.refresh();
+          }
+        }
+      } else if (renderer.xr.isPresenting) {
         avatarGroup.visible = false;
         updateLocomotion(dt);
         controllers.forEach(updateHudPointer);
@@ -353,6 +531,14 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       renderer.xr.removeEventListener("sessionstart", onSessionStart);
       renderer.xr.removeEventListener("sessionend", onSessionEnd);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("sl-action", onAction);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("dblclick", onDblClick);
+      liveHandlerRef.current = null;
+      live?.dispose();
       camera.remove(hud.mesh);
       hud.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);

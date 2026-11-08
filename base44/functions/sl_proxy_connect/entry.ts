@@ -5,7 +5,8 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
 
     const { proxy_base_url, first_name, last_name, password, grid, custom_login_uri } = await req.json();
-    if (!proxy_base_url || !first_name || !password) {
+    const demo = grid === 'demo';
+    if (!proxy_base_url || (!demo && (!first_name || !password))) {
       return Response.json({ success: false, message: 'Missing proxy URL or avatar credentials' }, { status: 400 });
     }
 
@@ -15,7 +16,7 @@ Deno.serve(async (req) => {
       resp = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ first_name, last_name: last_name || 'Resident', password, grid, custom_login_uri }),
+        body: JSON.stringify({ first_name: first_name || 'Demo', last_name: last_name || 'Resident', password, grid, custom_login_uri }),
       });
     } catch (_e) {
       return Response.json({ success: false, message: 'Could not reach the proxy server at ' + endpoint }, { status: 502 });
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
     if (data.ws_url || data.websocket_url) {
       try {
         await base44.entities.SLSession.create({
-          first_name,
+          first_name: first_name || 'Demo',
           last_name: last_name || 'Resident',
           grid,
           session_token: data.session_token || '',
