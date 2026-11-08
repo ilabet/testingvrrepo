@@ -181,9 +181,16 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     let quickMenu = null;
     const sendLiveChat = (text) => {
       const tp = text.match(/^\/tp\s+(.+)$/);
-      if (!tp) return sendLive({ type: "chat", text });
-      const [region, x, y, z] = tp[1].split("/").map((v) => v.trim());
-      sendLive({ type: "teleport", region, pos: [Number(x) || 128, Number(y) || 128, Number(z) || 30] });
+      if (tp) {
+        const [region, x, y, z] = tp[1].split("/").map((v) => v.trim());
+        return sendLive({ type: "teleport", region, pos: [Number(x) || 128, Number(y) || 128, Number(z) || 30] });
+      }
+      if (text === "/home") return sendLive({ type: "home" });
+      if (text.startsWith("/shout ")) return sendLive({ type: "chat", text: text.slice(7), mode: "shout" });
+      if (text.startsWith("/whisper ")) return sendLive({ type: "chat", text: text.slice(9), mode: "whisper" });
+      const ch = text.match(/^\/(\d+)\s+(.*)$/);
+      if (ch) return sendLive({ type: "chat", text: ch[2], channel: Number(ch[1]) });
+      sendLive({ type: "chat", text });
     };
     const createQuickMenu = () => {
       const menu = new VRPanel(
