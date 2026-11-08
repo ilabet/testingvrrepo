@@ -38,7 +38,7 @@ export class VRPanel {
   }
 
   addChat(line, color = '#fff') { this.log.push({ line, color }); if (this.log.length > 200) this.log.shift(); this.dirty = true; }
-  addNotice(n) { this.notices.unshift(n); this.notices = this.notices.slice(0, 6); this.dirty = true; }
+  addNotice(n) { this.notices.unshift(n); this.notices = this.notices.slice(0, 20); this.alertIndex = 0; this.dirty = true; }
   removeNotice(id) { this.notices = this.notices.filter((n) => n.id !== id); this.dirty = true; }
   setFlags(f) { this.flags = { ...this.flags, ...f }; this.dirty = true; }
   setStatus(s) { this.status = s; this.dirty = true; }
@@ -96,21 +96,23 @@ export class VRPanel {
   drawAlerts() {
     const ctx = this.ctx;
     if (!this.notices.length) { ctx.fillStyle = '#a0aec0'; ctx.font = '26px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('No notifications', 24, 90); }
-    let y = 80;
-    for (const n of this.notices) {
-      // llDialog allows 12 choices (plus our Ignore): lay them out 7 per row.
-      const perRow = Math.min(7, n.buttons.length);
-      const rows = Math.ceil(n.buttons.length / perRow);
-      const height = 32 + rows * 50;
-      if (y + height > 340) break;
-      ctx.fillStyle = '#e2e8f0'; ctx.font = '24px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(wrap(ctx, n.title, W - 48)[0], 24, y);
-      const bw = Math.min(220, (W - 48) / perRow - 8);
-      n.buttons.forEach((b, i) => {
-        const col = i % perRow, row = Math.floor(i / perRow);
-        this.button(24 + col * (bw + 8), y + 32 + row * 50, bw, 44, b.label, () => { b.onClick(); this.removeNotice(n.id); });
-      });
-      y += height + 6;
+    if (!this.notices.length) return;
+    // One alert at a time, with paging, so every alert and every dialog choice stays reachable.
+    this.alertIndex = Math.min(this.alertIndex ?? 0, this.notices.length - 1);
+    const n = this.notices[this.alertIndex];
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '24px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    wrap(ctx, n.title, W - 48).slice(0, 2).forEach((line, i) => ctx.fillText(line, 24, 80 + i * 30));
+    const perRow = Math.min(7, n.buttons.length);
+    const bw = Math.min(220, (W - 48) / perRow - 8);
+    n.buttons.forEach((b, i) => {
+      const col = i % perRow, row = Math.floor(i / perRow);
+      this.button(24 + col * (bw + 8), 148 + row * 52, bw, 44, b.label, () => { b.onClick(); this.removeNotice(n.id); });
+    });
+    if (this.notices.length > 1) {
+      ctx.fillStyle = '#a0aec0'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`${this.alertIndex + 1} / ${this.notices.length}`, W / 2, 278);
+      this.button(W / 2 - 200, 254, 120, 48, '< Newer', () => { this.alertIndex = Math.max(0, this.alertIndex - 1); });
+      this.button(W / 2 + 80, 254, 120, 48, 'Older >', () => { this.alertIndex = Math.min(this.notices.length - 1, this.alertIndex + 1); });
     }
   }
 
