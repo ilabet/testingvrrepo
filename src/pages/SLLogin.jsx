@@ -301,7 +301,7 @@ export default function SLLogin() {
                       </button>
 
                       {showGrid && (
-                        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-white/10 bg-[#140f1c] shadow-xl">
+                        <div className="mt-1 overflow-hidden rounded-md border border-white/10 bg-[#140f1c] shadow-xl">
                           {GRIDS.map((g) => (
                             <button
                               key={g.id}
