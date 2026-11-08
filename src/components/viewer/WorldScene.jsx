@@ -2,8 +2,9 @@ import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory.js";
 import { createVrHud } from "@/lib/vrHud";
-import { loadControls } from "@/lib/vrControls";
+import { loadControls, saveControls } from "@/lib/vrControls";
 import { createLiveWorld } from "@/lib/sl/liveWorld";
+import { VRPanel } from "@/lib/sl/panel";
 
 const NEON_PURPLE = 0xa855f7;
 const NEON_PINK = 0xec4899;
@@ -176,8 +177,75 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
     const keys = new Set();
     const pending = { up: 0 };
     const sendLive = (msg) => streamRef.current?.send(msg);
+    // VRChat-style quick menu (B/Y): chat + keyboard, travel, movement toggles, alerts.
+    let quickMenu = null;
+    const sendLiveChat = (text) => {
+      const tp = text.match(/^\/tp\s+(.+)$/);
+      if (!tp) return sendLive({ type: "chat", text });
+      const [region, x, y, z] = tp[1].split("/").map((v) => v.trim());
+      sendLive({ type: "teleport", region, pos: [Number(x) || 128, Number(y) || 128, Number(z) || 30] });
+    };
+    const createQuickMenu = () => {
+      const menu = new VRPanel(
+        {
+          onChat: sendLiveChat,
+          onIM: (to, text) => sendLive({ type: "im", to, text }),
+          onTeleport: (text) => sendLiveChat(`/tp ${text}`),
+          onHome: () => sendLive({ type: "home" }),
+          onStand: () => sendLive({ type: "stand" }),
+          onToggleFly: () => { live.state.fly = !live.state.fly; menu.setFlags({ fly: live.state.fly }); },
+          onToggleRun: () => { live.state.run = !live.state.run; menu.setFlags({ run: live.state.run }); },
+          onToggleSnap: () => saveControls({ ...controlsRef.current, turnMode: controlsRef.current.turnMode === "smooth" ? "snap" : "smooth" }),
+          getSnap: () => controlsRef.current.turnMode !== "smooth",
+        },
+        0.7
+      );
+      menu.mesh.visible = false;
+      scene.add(menu.mesh);
+      return menu;
+    };
+    const menuHead = new THREE.Vector3();
+    const menuDir = new THREE.Vector3();
+    const toggleQuickMenu = () => {
+      if (!quickMenu) return;
+      if (quickMenu.mesh.visible) {
+        quickMenu.mesh.visible = false;
+        return;
+      }
+      camera.getWorldPosition(menuHead);
+      camera.getWorldDirection(menuDir);
+      menuDir.y = 0;
+      if (menuDir.lengthSq() < 1e-6) menuDir.set(0, 0, -1);
+      menuDir.normalize();
+      quickMenu.mesh.position.copy(menuHead).addScaledVector(menuDir, 0.65);
+      quickMenu.mesh.position.y -= 0.15;
+      quickMenu.mesh.lookAt(menuHead.x, quickMenu.mesh.position.y, menuHead.z);
+      quickMenu.mesh.visible = true;
+    };
+    const onLiveEvent = (m) => {
+      if (!quickMenu) return;
+      if (m.type === "chat") quickMenu.addChat(m.text.startsWith("/me ") ? `${m.from} ${m.text.slice(4)}` : `${m.from}: ${m.text}`, m.sourceType === 2 ? "#b2f5ea" : "#fff");
+      if (m.type === "im") {
+        quickMenu.addChat(`[IM] ${m.from}: ${m.text}`, "#fbd38d");
+        quickMenu.addNotice({ id: `im-${m.fromId}`, title: `IM from ${m.from}: ${m.text}`, buttons: [{ label: "Reply", onClick: () => quickMenu.replyTo(m.fromId, m.from) }, { label: "Dismiss", onClick: () => {} }] });
+      }
+      if (m.type === "lure") quickMenu.addNotice({ id: m.id, title: `${m.from} offers a teleport: ${m.text || ""}`, buttons: [{ label: "Accept", onClick: () => sendLive({ type: "acceptLure", id: m.id }) }, { label: "Decline", onClick: () => {} }] });
+      if (m.type === "dialog") quickMenu.addNotice({ id: m.id, title: `${m.object}: ${m.text}`, buttons: [...m.buttons.map((b, i) => ({ label: b, onClick: () => sendLive({ type: "dialogReply", id: m.id, index: i }) })), { label: "Ignore", onClick: () => {} }] });
+      if ((m.type === "teleport" || m.type === "disconnected" || m.type === "error") && m.message) quickMenu.addChat(m.message, "#90cdf4");
+    };
     const enterLive = () => {
-      live = createLiveWorld({ scene, origin: liveOriginRef.current || "", send: sendLive, onStatus: (name) => liveStatusRef.current?.(name) });
+      live = createLiveWorld({
+        scene,
+        origin: liveOriginRef.current || "",
+        send: sendLive,
+        onStatus: (name) => {
+          liveStatusRef.current?.(name);
+          quickMenu?.setStatus(name);
+        },
+        onEvent: onLiveEvent,
+      });
+      quickMenu = createQuickMenu();
+      hud.mesh.visible = false;
       sandbox.visible = false;
       liveLights.visible = true;
       scene.background = new THREE.Color(SKY);
@@ -197,6 +265,7 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       if (!live) return;
       const action = e.detail?.action;
       if (action === "fly") live.state.fly = !live.state.fly;
+      quickMenu?.setFlags({ fly: live.state.fly });
       if (action === "jump") pending.up = performance.now() + 400;
       if (action === "stand") sendLive({ type: "stand" });
     };
@@ -252,8 +321,12 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
         if (idx >= 0) hud.selectAt(idx);
         else if (live) {
           pickRay.setFromXRController(controller);
-          const hit = live.pick(pickRay);
-          if (hit) sendLive({ type: "touch", id: hit.localId });
+          const menuHit = quickMenu?.mesh.visible ? pickRay.intersectObject(quickMenu.mesh, false)[0] : null;
+          if (menuHit?.uv) quickMenu.click(menuHit.uv);
+          else {
+            const hit = live.pick(pickRay);
+            if (hit) sendLive({ type: "touch", id: hit.localId });
+          }
         }
       });
       controller.addEventListener("squeezestart", () => {
@@ -325,23 +398,37 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       }
     };
 
-    // Live mode in XR: sticks drive the Second Life avatar; the rig follows it.
+    // Live mode in XR, VRChat-style: left stick moves (edge = run), right stick turns,
+    // A/X jump (double-tap toggles flying; flying: A rises, X descends), B/Y quick menu.
+    let lastJumpAt = 0;
+    let lastStandAt = 0;
+    const handOf = (controller, index) => {
+      const h = controller.userData.inputSource?.handedness;
+      return h === "left" || h === "right" ? h : index === 0 ? "left" : "right";
+    };
     const liveXrInput = (dt) => {
       const cfg = controlsRef.current;
-      const input = { fwd: 0, strafe: 0, up: performance.now() < pending.up ? 1 : 0, run: false };
+      const now = performance.now();
+      const input = { fwd: 0, strafe: 0, up: now < pending.up ? 1 : 0, run: false };
+      let wantsStand = false;
       controllers.forEach((controller, index) => {
         const gp = controller.userData.inputSource?.gamepad;
         if (!gp) return;
-        if (pressEdge(controller, 5)) {
-          hud.mesh.visible = !hud.mesh.visible;
-          controlsRef.current = { ...controlsRef.current, showHud: hud.mesh.visible };
+        const hand = handOf(controller, index);
+        if (pressEdge(controller, 5)) toggleQuickMenu();
+        if (pressEdge(controller, 4)) {
+          if (live.state.sitting) wantsStand = true;
+          else if (now - lastJumpAt < 350) {
+            live.state.fly = !live.state.fly;
+            quickMenu?.setFlags({ fly: live.state.fly });
+            lastJumpAt = 0;
+          } else lastJumpAt = now;
         }
+        if (gp.buttons?.[4]?.pressed) input.up = live.state.fly && hand === "left" ? -1 : 1;
         const ax = gp.axes.length >= 4 ? gp.axes[2] : gp.axes[0];
         const ay = gp.axes.length >= 4 ? gp.axes[3] : gp.axes[1];
         if (typeof ax !== "number" || typeof ay !== "number") return;
-        if (gp.buttons?.[4]?.pressed) input.up = 1;
-        if (index === 1) {
-          if (live.state.fly && Math.abs(ay) > 0.3) input.up = -ay;
+        if (hand === "right") {
           if (cfg.turnMode === "smooth") {
             if (Math.abs(ax) > 0.15) rotateRig(-ax * 2.2 * dt);
           } else if (Math.abs(ax) > 0.7) {
@@ -354,13 +441,19 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
           }
           return;
         }
-        if (pressEdge(controller, 3)) live.state.fly = !live.state.fly;
-        if (Math.hypot(ax, ay) > 0.15) {
+        const magnitude = Math.hypot(ax, ay);
+        if (magnitude > 0.15) {
           input.fwd = -ay;
           input.strafe = ax;
-          input.run = Math.hypot(ax, ay) > 0.92;
+          input.run = magnitude > 0.92;
+          if (live.state.sitting && magnitude > 0.6) wantsStand = true;
         }
       });
+      // Like leaving a VRChat seat: moving or jumping stands up.
+      if (wantsStand && now - lastStandAt > 1000) {
+        sendLive({ type: "stand" });
+        lastStandAt = now;
+      }
       return input;
     };
 
@@ -484,13 +577,20 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       if (live) {
         updateLive(dt);
         if (renderer.xr.isPresenting) {
+          hud.mesh.visible = false;
           controllers.forEach(updateHudPointer);
-          hud.setHover(Math.max(...controllers.map((c) => c.userData.hudIndex)));
-          hudTick += dt;
-          if (hudTick > 0.4) {
-            hudTick = 0;
-            hud.refresh();
+          let menuUv = null;
+          if (quickMenu?.mesh.visible) {
+            for (const controller of controllers) {
+              pickRay.setFromXRController(controller);
+              const hit = pickRay.intersectObject(quickMenu.mesh, false)[0];
+              if (hit?.uv) menuUv = hit.uv;
+            }
           }
+          quickMenu?.hover(menuUv);
+          quickMenu?.update();
+        } else if (quickMenu) {
+          quickMenu.mesh.visible = false;
         }
       } else if (renderer.xr.isPresenting) {
         avatarGroup.visible = false;
@@ -538,6 +638,10 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("dblclick", onDblClick);
       liveHandlerRef.current = null;
+      if (quickMenu) {
+        scene.remove(quickMenu.mesh);
+        quickMenu.texture.dispose();
+      }
       live?.dispose();
       camera.remove(hud.mesh);
       hud.dispose();

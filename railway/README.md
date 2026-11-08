@@ -59,9 +59,12 @@ and keep the builder on Dockerfile. The image installs `opj_decompress` (OpenJPE
    offers and script dialogs.
 
 Controls in the live world — desktop: W/S move, A/D turn, Q/E strafe, Space jump/up, C down,
-F fly, Shift run, click to touch, double-click to sit. VR: left stick move (push to the edge to
-run), right stick turn (and up/down while flying), A jump/up, left stick click fly, trigger touch,
-grip sit/stand, B quick menu. Chat commands: `/tp Region/x/y/z`, `/home`, `/shout`, `/whisper`,
+F fly, Shift run, click to touch, double-click to sit. VR (VRChat-style): left stick moves where
+you look (push to the edge to run), right stick turns (snap or smooth, per the VR controls
+settings), A/X jump and a double-tap toggles flying (while flying hold A to rise, X to descend),
+B/Y opens the quick menu (chat with keyboard, travel, fly/run/stand, alerts), trigger interacts
+(touch objects, press menu buttons), grip sits on the object you point at, and moving or jumping
+while seated stands up. Chat commands: `/tp Region/x/y/z`, `/home`, `/shout`, `/whisper`,
 `/<channel> text`.
 
 ## Local development
