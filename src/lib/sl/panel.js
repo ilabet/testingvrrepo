@@ -97,13 +97,20 @@ export class VRPanel {
     const ctx = this.ctx;
     if (!this.notices.length) { ctx.fillStyle = '#a0aec0'; ctx.font = '26px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('No notifications', 24, 90); }
     let y = 80;
-    for (const n of this.notices.slice(0, 3)) {
+    for (const n of this.notices) {
+      // llDialog allows 12 choices (plus our Ignore): lay them out 7 per row.
+      const perRow = Math.min(7, n.buttons.length);
+      const rows = Math.ceil(n.buttons.length / perRow);
+      const height = 32 + rows * 50;
+      if (y + height > 340) break;
       ctx.fillStyle = '#e2e8f0'; ctx.font = '24px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       ctx.fillText(wrap(ctx, n.title, W - 48)[0], 24, y);
-      const btns = n.buttons.slice(0, 6);
-      const bw = Math.min(220, (W - 48) / btns.length - 8);
-      btns.forEach((b, i) => this.button(24 + i * (bw + 8), y + 32, bw, 44, b.label, () => { b.onClick(); this.removeNotice(n.id); }));
-      y += 88;
+      const bw = Math.min(220, (W - 48) / perRow - 8);
+      n.buttons.forEach((b, i) => {
+        const col = i % perRow, row = Math.floor(i / perRow);
+        this.button(24 + col * (bw + 8), y + 32 + row * 50, bw, 44, b.label, () => { b.onClick(); this.removeNotice(n.id); });
+      });
+      y += height + 6;
     }
   }
 
