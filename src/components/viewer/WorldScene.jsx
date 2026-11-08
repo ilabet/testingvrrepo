@@ -234,7 +234,7 @@ export default function WorldScene({ joystickInput, onRendererReady, statusText,
       if (m.type === "chat") quickMenu.addChat(m.text.startsWith("/me ") ? `${m.from} ${m.text.slice(4)}` : `${m.from}: ${m.text}`, m.sourceType === 2 ? "#b2f5ea" : "#fff");
       if (m.type === "im") {
         quickMenu.addChat(`[IM] ${m.from}: ${m.text}`, "#fbd38d");
-        quickMenu.addNotice({ id: `im-${m.fromId}`, title: `IM from ${m.from}: ${m.text}`, buttons: [{ label: "Reply", onClick: () => quickMenu.replyTo(m.fromId, m.from) }, { label: "Dismiss", onClick: () => {} }] });
+        quickMenu.addNotice({ id: `im-${m.fromId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, title: `IM from ${m.from}: ${m.text}`, buttons: [{ label: "Reply", onClick: () => quickMenu.replyTo(m.fromId, m.from) }, { label: "Dismiss", onClick: () => {} }] });
       }
       if (m.type === "lure") quickMenu.addNotice({ id: m.id, title: `${m.from} offers a teleport: ${m.text || ""}`, buttons: [{ label: "Accept", onClick: () => sendLive({ type: "acceptLure", id: m.id }) }, { label: "Decline", onClick: () => {} }] });
       if (m.type === "dialog") quickMenu.addNotice({ id: m.id, title: `${m.object}: ${m.text}`, buttons: [...m.buttons.map((b, i) => ({ label: b, onClick: () => sendLive({ type: "dialogReply", id: m.id, index: i }) })), { label: "Ignore", onClick: () => {} }] });
