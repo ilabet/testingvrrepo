@@ -14,5 +14,4 @@ export const DEFAULT_THEME = {
 
 export const ACCENT_SWATCHES = ["#f4c7d0", "#d94e21", "#a855f7", "#60a5fa", "#4ade80", "#facc15"];
 
-export const APP_LOGO =
-  "https://media.base44.com/images/public/6a595979c5f88923e5dd8b4b/b82d054b8_logo.png";
+export const APP_LOGO = "/logo.jpg";

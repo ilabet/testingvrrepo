@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { Globe, ChevronDown, LogIn, Eye, EyeOff } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { loadJson, saveJson } from "@/lib/localStore";
 import LoginBackdrop from "@/components/login/LoginBackdrop";
 import LoginWindow from "@/components/login/LoginWindow";
 import LoginBrandPanel from "@/components/login/LoginBrandPanel";
@@ -19,11 +19,14 @@ const GRIDS = [
   { id: "aditi", label: "Second Life (Beta Grid)" },
   { id: "osgrid", label: "OSGrid" },
   { id: "custom", label: "Custom Grid..." },
-  { id: "demo", label: "Demo World (no account, needs proxy)" },
+  { id: "demo", label: "Demo World (no account)" },
 ];
 
 const INPUT =
   "w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm text-white placeholder-white/25 transition-colors focus:border-neon-pink/60 focus:outline-none focus:ring-1 focus:ring-neon-pink/30";
+
+const THEME_KEY = "sl_login_theme";
+const MAX_UPLOAD_BYTES = 3 * 1048576;
 
 const LABEL = "mb-1 block text-[10px] uppercase tracking-wider text-white/40";
 
@@ -45,54 +48,39 @@ export default function SLLogin() {
 
   // ---- Page customization ----
   const [theme, setTheme] = useState(DEFAULT_THEME);
-  const [themeRecord, setThemeRecord] = useState(null);
   const [showCustomize, setShowCustomize] = useState(false);
   const [savingTheme, setSavingTheme] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [infoMode, setInfoMode] = useState(null);
   const [lastSession, setLastSession] = useState(null);
-  const [ownerSignedIn, setOwnerSignedIn] = useState(false);
 
   useEffect(() => {
-    base44.auth.isAuthenticated().then(setOwnerSignedIn).catch(() => {});
-
-    base44.entities.LoginTheme.list({ sort: "-updated_date", limit: 1 })
-      .then((page) => {
-        if (!page.items.length) return;
-        const rec = page.items[0];
-        setThemeRecord(rec);
-        setTheme({
-          background_type: rec.background_type || DEFAULT_THEME.background_type,
-          background_url: rec.background_url || "",
-          accent_color: rec.accent_color || DEFAULT_THEME.accent_color,
-          dim: rec.dim ?? DEFAULT_THEME.dim,
-          blur: rec.blur ?? DEFAULT_THEME.blur,
-          headline: rec.headline || DEFAULT_THEME.headline,
-          subheadline: rec.subheadline || DEFAULT_THEME.subheadline,
-          logo_url: rec.logo_url || "",
-          frame_style: rec.frame_style || "none",
-          music_url: rec.music_url || "",
-          music_title: rec.music_title || "",
-        });
-      })
-      .catch(() => {});
-
-    base44.entities.SLSession.list({ sort: "-created_date", limit: 1 })
-      .then((page) => setLastSession(page.items[0] || null))
-      .catch(() => {});
+    const saved = loadJson(THEME_KEY, null);
+    if (saved) setTheme({ ...DEFAULT_THEME, ...saved });
+    setLastSession(loadJson("sl_session", null));
   }, []);
 
+  // Uploads stay in this browser as data URLs, so keep them small enough for localStorage.
   const handleUpload = async (file, kind = "background") => {
     if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`That file is ${(file.size / 1048576).toFixed(1)} MB; uploads are limited to ${MAX_UPLOAD_BYTES / 1048576} MB.`);
+      return;
+    }
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadPublicFile({ file });
+      const fileUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
       if (kind === "logo") {
-        setTheme((t) => ({ ...t, logo_url: file_url }));
+        setTheme((t) => ({ ...t, logo_url: fileUrl }));
       } else {
         setTheme((t) => ({
           ...t,
-          background_url: file_url,
+          background_url: fileUrl,
           background_type: file.type.startsWith("video") ? "video" : "image",
         }));
       }
@@ -104,25 +92,9 @@ export default function SLLogin() {
   const saveTheme = async () => {
     setSavingTheme(true);
     try {
-      const payload = {
-        background_type: theme.background_type,
-        background_url: theme.background_url,
-        accent_color: theme.accent_color,
-        dim: Number(theme.dim),
-        blur: Number(theme.blur),
-        headline: theme.headline,
-        subheadline: theme.subheadline,
-        logo_url: theme.logo_url,
-        frame_style: theme.frame_style,
-        music_url: theme.music_url,
-        music_title: theme.music_title,
-      };
-      if (themeRecord) {
-        const updated = await base44.entities.LoginTheme.update(themeRecord.id, payload);
-        setThemeRecord(updated);
-      } else {
-        const created = await base44.entities.LoginTheme.create(payload);
-        setThemeRecord(created);
+      if (!saveJson(THEME_KEY, { ...theme, dim: Number(theme.dim), blur: Number(theme.blur) })) {
+        setError("This browser's storage is full: use a smaller background or logo.");
+        return;
       }
       setShowCustomize(false);
     } finally {
@@ -130,8 +102,7 @@ export default function SLLogin() {
     }
   };
 
-  // The bridge allows cross-origin requests, so the browser logs in to it directly;
-  // the Base44 function is only a fallback when the bridge can't be reached that way.
+  // Logs in through the bridge: the one serving this page, or another one (it allows cross-origin requests).
   const proxyLogin = async ({ proxy_base_url, ...body }) => {
     const endpoint = proxy_base_url.replace(/\/+$/, "").replace(/\/(login|health)$/, "") + "/login";
     let resp;
@@ -142,7 +113,7 @@ export default function SLLogin() {
         body: JSON.stringify({ ...body, first_name: body.first_name || "Demo" }),
       });
     } catch {
-      return (await base44.functions.invoke("sl_proxy_connect", { proxy_base_url, ...body })).data;
+      return { success: false, message: `Could not reach the bridge at ${endpoint}` };
     }
     const text = await resp.text();
     try {
@@ -160,28 +131,18 @@ export default function SLLogin() {
     setError("");
     setLoading(true);
     try {
-      // If a live proxy is configured, log in through it (full world stream);
-      // otherwise use the direct grid login bridge.
-      const usingProxy = Boolean(proxyUrl.trim());
-      if (grid === "demo" && !usingProxy) {
-        setError("The demo world runs on the live world proxy: enter its URL first.");
-        return;
-      }
-      const fnName = usingProxy ? "sl_proxy_connect" : "sl_connect";
-      const payload = usingProxy
-        ? { proxy_base_url: proxyUrl.trim(), first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri }
-        : { first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri };
-      const data = usingProxy
-        ? await proxyLogin(payload)
-        : (await base44.functions.invoke(fnName, payload)).data;
+      const bridgeUrl = proxyUrl.trim() || window.location.origin;
+      const data = await proxyLogin({
+        proxy_base_url: bridgeUrl,
+        first_name: firstName,
+        last_name: lastName || "Resident",
+        password,
+        grid,
+        custom_login_uri: customLoginUri,
+      });
       const ok = data.success !== false && (data.ws_url || data.websocket_url || data.agent_id || data.success === true);
       if (ok) {
-        if (usingProxy) {
-          const ws = data.ws_url || data.websocket_url || "";
-          if (ws) localStorage.setItem("sl_ws_url", ws);
-        } else {
-          localStorage.removeItem("sl_ws_url");
-        }
+        localStorage.setItem("sl_ws_url", data.ws_url || data.websocket_url || "");
         localStorage.setItem("sl_proxy_url", proxyUrl.trim());
         localStorage.setItem(
           "sl_session",
@@ -190,7 +151,8 @@ export default function SLLogin() {
             last_name: lastName || "Resident",
             grid,
             agent_id: data.agent_id || null,
-            session_id: data.session_id || null,
+            avatar_name: data.avatar_name || null,
+            last_location: data.region || null,
             signed_in_at: new Date().toISOString(),
           })
         );
@@ -204,7 +166,7 @@ export default function SLLogin() {
         setError(data.message || data.error || "Login failed");
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || "Could not reach the grid login server";
+      const msg = err?.message || "Could not reach the bridge";
       setError(msg);
     } finally {
       setLoading(false);
@@ -227,7 +189,7 @@ export default function SLLogin() {
             onViewer={() => navigate("/mobile")}
             onHelp={() => setInfoMode("help")}
             onDebug={() => setInfoMode("debug")}
-            canCustomize={ownerSignedIn}
+            canCustomize
             onCustomize={() => setShowCustomize(true)}
             onOwnerLogin={() => navigate("/login")}
             logoUrl={theme.logo_url}
@@ -361,7 +323,7 @@ export default function SLLogin() {
 
                   <details className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
                     <summary className="cursor-pointer select-none text-[11px] text-white/50">
-                      Live world proxy (optional)
+                      Bridge server (optional)
                     </summary>
                     <div className="mt-2">
                       <label className={LABEL}>Proxy server URL</label>
@@ -369,11 +331,11 @@ export default function SLLogin() {
                         type="text"
                         value={proxyUrl}
                         onChange={(e) => setProxyUrl(e.target.value)}
-                        placeholder="https://your-service.up.railway.app"
+                        placeholder={window.location.origin}
                         className={INPUT}
                       />
                       <p className="mt-1 text-[10px] text-white/35">
-                        Leave empty for the sandbox scene. Enter your VPS proxy URL to stream the live SL world.
+                        Leave empty to use this server. Enter another bridge URL only if you run your own elsewhere.
                       </p>
                     </div>
                   </details>

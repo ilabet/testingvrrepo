@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, User, Package, Map, MapPin, Users,
-  Search, Settings, Bell, MessageCircle, Globe,
+  Search, Settings, Bell, Globe,
   ShoppingBag, Star, HelpCircle, Compass
 } from "lucide-react";
 

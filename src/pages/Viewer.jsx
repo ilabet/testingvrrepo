@@ -13,7 +13,6 @@ import AppearancePanel from "@/components/viewer/AppearancePanel";
 import WorldScene from "@/components/viewer/WorldScene";
 import XRButton from "@/components/viewer/XRButton";
 import { useWorldStream } from "@/hooks/useWorldStream";
-import { base44 } from "@/api/base44Client";
 
 export default function Viewer() {
   const [activeTool, setActiveTool] = useState(null);
@@ -24,11 +23,21 @@ export default function Viewer() {
   // Live world-stream proxy connection (empty = sandbox scene fallback)
   const wsUrl = localStorage.getItem("sl_ws_url") || "";
 
-  // Alert Discord when the live proxy connection drops unexpectedly
+  // The bridge posts a Discord alert (if configured) when the live connection drops unexpectedly
   const handleStreamDrop = useCallback((info) => {
-    base44.functions
-      .invoke("stream_drop_alert", { proxy_url: wsUrl, reason: info?.reason || "connection lost" })
-      .catch(() => {});
+    let origin, session;
+    try {
+      const u = new URL(wsUrl);
+      origin = `${u.protocol === "wss:" ? "https" : "http"}://${u.host}`;
+      session = u.searchParams.get("session");
+    } catch {
+      return;
+    }
+    fetch(`${origin}/alert/stream-drop`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session, reason: info?.reason || "connection lost" }),
+    }).catch(() => {});
   }, [wsUrl]);
 
   const stream = useWorldStream(wsUrl, handleStreamDrop);

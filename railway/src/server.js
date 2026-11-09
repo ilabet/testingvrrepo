@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,11 @@ import { getTexture, getMesh } from './assets.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8080);
 const CLIENT_DIR = process.env.CLIENT_DIR ?? path.resolve(here, '../client');
+// Built React app (the root Dockerfile copies it here); without it the standalone viewer is served at /.
+const WEB_DIR = process.env.WEB_DIR ?? path.resolve(here, '../web');
+const HAS_WEB = existsSync(path.join(WEB_DIR, 'index.html'));
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL ?? '';
+const ALERT_MIN_INTERVAL_MS = 60000;
 const DEMO_ONLY = process.env.DEMO_ONLY === '1';
 const ALLOW_CUSTOM_GRIDS = process.env.ALLOW_CUSTOM_GRIDS === '1';
 const MAX_SESSIONS = Number(process.env.MAX_SESSIONS ?? 20);
@@ -18,6 +24,11 @@ const DETACHED_TIMEOUT_MS = Number(process.env.DETACHED_TIMEOUT_MS ?? 120000);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const sessions = new Map();
+// Every session token this process issued (kept after logout so a dropped viewer can still report it),
+// mapped to the time of its last Discord alert.
+const issuedTokens = new Map();
+const MAX_ISSUED_TOKENS = 1000;
+const alertsInFlight = new Set();
 
 // One Second Life (or demo) session, which a viewer WebSocket can attach to and re-attach to.
 class HostedSession {
@@ -38,6 +49,10 @@ class HostedSession {
       if (this.ws && this.ws.readyState === this.ws.OPEN) this.ws.send(JSON.stringify(msg));
     };
     sessions.set(this.token, this);
+    issuedTokens.set(this.token, 0);
+    if (issuedTokens.size > MAX_ISSUED_TOKENS) {
+      for (const t of issuedTokens.keys()) if (!sessions.has(t)) { issuedTokens.delete(t); break; }
+    }
   }
 
   async login(params) {
@@ -162,7 +177,41 @@ assetRoute('texture', getTexture);
 assetRoute('mesh', getMesh);
 
 app.use('/vendor/three', express.static(path.resolve(here, '../node_modules/three'), { maxAge: '7d' }));
-app.use(express.static(CLIENT_DIR, { extensions: ['html'] }));
+// Discord ping when a viewer's world stream drops. Only a session token this bridge issued may report,
+// at most one alert a minute per session.
+app.post('/alert/stream-drop', express.json({ limit: '4kb' }), async (req, res) => {
+  if (!DISCORD_WEBHOOK_URL) return res.status(204).end();
+  const token = typeof req.body?.session === 'string' ? req.body.session : '';
+  if (!issuedTokens.has(token)) return res.status(403).json({ success: false, message: 'Unknown session' });
+  if (alertsInFlight.has(token) || Date.now() - issuedTokens.get(token) < ALERT_MIN_INTERVAL_MS) return res.status(429).json({ success: false, message: 'Alert rate limited' });
+  alertsInFlight.add(token);
+  const reason = typeof req.body?.reason === 'string' && req.body.reason ? req.body.reason.slice(0, 300) : 'connection lost';
+  const content = ['**World stream dropped**', `**Bridge:** ${publicUrl(req)}`, `**Reason:** ${reason}`, `**When:** ${new Date().toISOString()}`].join('\n');
+  try {
+    const r = await fetch(DISCORD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'SecondLife Go', content }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return res.status(502).json({ success: false, message: `Discord responded ${r.status}` });
+    issuedTokens.set(token, Date.now());
+    return res.json({ success: true });
+  } catch {
+    return res.status(502).json({ success: false, message: 'Could not reach Discord' });
+  } finally {
+    alertsInFlight.delete(token);
+  }
+});
+
+if (HAS_WEB) {
+  app.use('/standalone', express.static(CLIENT_DIR, { extensions: ['html'] }));
+  app.use(express.static(WEB_DIR, { index: false, maxAge: '1h' }));
+  // client-side routes (/sl-login, /mobile, ...) all load the app shell
+  app.use((req, res, next) => (req.method === 'GET' && req.accepts('html') ? res.sendFile(path.join(WEB_DIR, 'index.html')) : next()));
+} else {
+  app.use(express.static(CLIENT_DIR, { extensions: ['html'] }));
+}
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });

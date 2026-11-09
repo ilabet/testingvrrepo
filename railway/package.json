@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node src/server.js",
     "demo": "DEMO_ONLY=1 node src/server.js",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "license": "MIT",
   "description": "Railway backend for the SecondLife Go viewer: Second Life protocol bridge (node-metaverse), world stream and asset conversion",
