@@ -130,6 +130,31 @@ export default function SLLogin() {
     }
   };
 
+  // The bridge allows cross-origin requests, so the browser logs in to it directly;
+  // the Base44 function is only a fallback when the bridge can't be reached that way.
+  const proxyLogin = async ({ proxy_base_url, ...body }) => {
+    const endpoint = proxy_base_url.replace(/\/+$/, "").replace(/\/(login|health)$/, "") + "/login";
+    let resp;
+    try {
+      resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, first_name: body.first_name || "Demo" }),
+      });
+    } catch {
+      return (await base44.functions.invoke("sl_proxy_connect", { proxy_base_url, ...body })).data;
+    }
+    const text = await resp.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: `The proxy URL answered with HTTP ${resp.status}, not the Second Life bridge. Use your Railway domain, e.g. https://<name>.up.railway.app`,
+      };
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -146,8 +171,9 @@ export default function SLLogin() {
       const payload = usingProxy
         ? { proxy_base_url: proxyUrl.trim(), first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri }
         : { first_name: firstName, last_name: lastName || "Resident", password, grid, custom_login_uri: customLoginUri };
-      const response = await base44.functions.invoke(fnName, payload);
-      const data = response.data;
+      const data = usingProxy
+        ? await proxyLogin(payload)
+        : (await base44.functions.invoke(fnName, payload)).data;
       const ok = data.success !== false && (data.ws_url || data.websocket_url || data.agent_id || data.success === true);
       if (ok) {
         if (usingProxy) {
