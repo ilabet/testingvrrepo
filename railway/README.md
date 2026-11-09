@@ -22,7 +22,7 @@ interactions from the app (including WebXR on Quest, Vive, Index…) are sent ba
 | `GET /asset/mesh/<token>/<uuid>` | Mesh geometry as JSON |
 | `GET /` | The React app, when built into `web/` by the root `Dockerfile`; otherwise the standalone viewer |
 | `GET /standalone/` + `WS /ws` | A minimal standalone WebXR viewer, handy for testing |
-| `POST /alert/stream-drop` | Discord ping (needs `DISCORD_WEBHOOK_URL`) when a viewer's stream drops |
+| `POST /alert/stream-drop` | Discord ping (needs `DISCORD_WEBHOOK_URL`) when a viewer's stream drops; body `{ session, reason }`, session must be one this bridge issued |
 
 Grids: `agni` (main), `aditi` (beta), `osgrid`, `demo` (a local test world, no account needed) and
 custom login URIs when `ALLOW_CUSTOM_GRIDS=1`.
@@ -45,7 +45,7 @@ the usual deployment is the whole repository with the root `Dockerfile` (see the
 | Name | Default | Notes |
 | --- | --- | --- |
 | `PORT` | auto | Railway injects it |
-| `PROXY_TOKEN` | unset | Shared secret. When set, `/login` needs an `x-proxy-token` header |
+| `PROXY_TOKEN` | unset | Shared secret. When set, `/login` needs an `x-proxy-token` header (the bundled app does not send it: API-only use) |
 | `DEMO_ONLY` | unset | `1` serves only the demo world (no Second Life logins) |
 | `ALLOW_CUSTOM_GRIDS` | unset | `1` allows arbitrary login URIs (OpenSim grids) |
 | `MAX_SESSIONS` | `20` | Simultaneous logins |

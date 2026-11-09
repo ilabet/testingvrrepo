@@ -31,8 +31,8 @@ Every push to `main` redeploys automatically.
 | `DEMO_ONLY=1` | Only the demo world; no real Second Life logins |
 | `ALLOW_CUSTOM_GRIDS=1` | Allow custom grid login URIs |
 | `MAX_SESSIONS` | Concurrent logins (default 20) |
-| `PROXY_TOKEN` | Require `x-proxy-token` on `POST /login` |
-| `DISCORD_WEBHOOK_URL` | Discord ping when a viewer's world stream drops (at most one a minute) |
+| `PROXY_TOKEN` | Require `x-proxy-token` on `POST /login`. The bundled app does not send it, so only set this for API-only use |
+| `DISCORD_WEBHOOK_URL` | Discord ping when a viewer's world stream drops (at most one a minute per session) |
 
 **Security:** your Second Life password goes from the page to this service and on to Linden Lab's
 login server. Only use a service you deployed yourself.
