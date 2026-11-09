@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Shirt, Scissors, Palette, RefreshCw } from "lucide-react";
+import { X, Shirt, RefreshCw } from "lucide-react";
 
 const OUTFIT_PARTS = [
   { id: "hair", label: "Hair", equipped: "Styled Brown" },

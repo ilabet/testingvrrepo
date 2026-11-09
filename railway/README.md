@@ -7,7 +7,7 @@ keeps the region's terrain, objects and avatars, converts textures (JPEG2000 →
 interactions from the app (including WebXR on Quest, Vive, Index…) are sent back to the simulator.
 
 ```
- App (Base44, Three.js / WebXR)  --POST /login-->  this service  --LLUDP + caps-->  Second Life
+ App (React, Three.js / WebXR)   --POST /login-->  this service  --LLUDP + caps-->  Second Life
                                  <--WS /stream---
 ```
 
@@ -20,7 +20,9 @@ interactions from the app (including WebXR on Quest, Vive, Index…) are sent ba
 | `WS /stream?session=…` | The app attaches to the logged-in session; re-attaching (page reload) resends the whole region. A session with no viewer attached logs out after 2 minutes |
 | `GET /asset/texture/<token>/<uuid>` | Texture as WebP (`X-Alpha-Mode`: none / mask / blend) |
 | `GET /asset/mesh/<token>/<uuid>` | Mesh geometry as JSON |
-| `GET /` + `WS /ws` | A standalone WebXR viewer (no Base44 needed), handy for testing |
+| `GET /` | The React app, when built into `web/` by the root `Dockerfile`; otherwise the standalone viewer |
+| `GET /standalone/` + `WS /ws` | A minimal standalone WebXR viewer, handy for testing |
+| `POST /alert/stream-drop` | Discord ping (needs `DISCORD_WEBHOOK_URL`) when a viewer's stream drops |
 
 Grids: `agni` (main), `aditi` (beta), `osgrid`, `demo` (a local test world, no account needed) and
 custom login URIs when `ALLOW_CUSTOM_GRIDS=1`.
@@ -35,8 +37,8 @@ railway up              # builds the Dockerfile and deploys
 railway domain          # gives you https://<name>.up.railway.app
 ```
 
-If you deploy from the whole repo instead, set the Railway service **Root Directory** to `railway`
-and keep the builder on Dockerfile. The image installs `opj_decompress` (OpenJPEG) for textures.
+To deploy only the bridge (no React app), set the Railway service **Root Directory** to `railway`;
+the usual deployment is the whole repository with the root `Dockerfile` (see the main README). The image installs `opj_decompress` (OpenJPEG) for textures.
 
 ### Environment variables
 
@@ -81,7 +83,7 @@ Requires Node.js 20+ and `opj_decompress` (`apt install libopenjp2-tools` / `bre
 
 ## Security
 
-Credentials travel app → Base44 function → this service → the grid login server. They are never
+Credentials travel app → this service → the grid login server. They are never
 stored or logged. Whoever runs this service can see them, so only use a bridge you deploy yourself.
 Each session gets a random token that scopes its stream and asset URLs.
 

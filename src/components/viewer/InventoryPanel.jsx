@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Search, Loader2, Shirt, Package } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { loadJson, saveJson } from "@/lib/localStore";
 import InventoryRow from "./InventoryRow";
 
 const CATEGORIES = [
@@ -30,49 +30,32 @@ const DEFAULT_ITEMS = [
   { name: "Footstep SFX", category: "sound", worn: false },
 ];
 
+const INVENTORY_KEY = "sl_inventory";
+
 export default function InventoryPanel({ onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
-  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
-      const page = await base44.entities.InventoryItem.list({ sort: "-created_date", limit: 200 });
-      if (page.items.length === 0) {
-        await base44.entities.InventoryItem.bulkCreate(DEFAULT_ITEMS);
-        const seeded = await base44.entities.InventoryItem.list({ sort: "-created_date", limit: 200 });
-        setItems(seeded.items);
-      } else {
-        setItems(page.items);
-      }
-    };
-    load().finally(() => setLoading(false));
+    const saved = loadJson(INVENTORY_KEY, null);
+    setItems(saved || DEFAULT_ITEMS.map((item, i) => ({ ...item, id: `item-${i}` })));
+    setLoading(false);
   }, []);
 
-  const toggleWorn = async (item) => {
-    const worn = !item.worn;
-    setBusyId(item.id);
-    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, worn } : i)));
-    try {
-      await base44.entities.InventoryItem.update(item.id, { worn });
-    } catch {
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, worn: item.worn } : i)));
-    } finally {
-      setBusyId(null);
-    }
+  const commit = (next) => {
+    setItems(next);
+    saveJson(INVENTORY_KEY, next);
   };
 
-  const removeItem = async (item) => {
+  const toggleWorn = (item) => {
+    commit(items.map((i) => (i.id === item.id ? { ...i, worn: !item.worn } : i)));
+  };
+
+  const removeItem = (item) => {
     if (!window.confirm(`Delete "${item.name}" from your inventory?`)) return;
-    setBusyId(item.id);
-    try {
-      await base44.entities.InventoryItem.delete(item.id);
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-    } finally {
-      setBusyId(null);
-    }
+    commit(items.filter((i) => i.id !== item.id));
   };
 
   const wornItems = items.filter((i) => i.worn);
@@ -164,7 +147,7 @@ export default function InventoryPanel({ onClose }) {
                   <InventoryRow
                     key={item.id}
                     item={item}
-                    busy={busyId === item.id}
+                    busy={false}
                     onToggleWorn={toggleWorn}
                     onRemove={removeItem}
                   />

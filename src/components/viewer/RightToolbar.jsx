@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronUp, MessageSquare, Move, Hammer, Camera,
-  Volume2, VolumeX, Music, Sun, Moon, Mic, MicOff,
-  Video, Pause, Play, SkipForward, Crosshair
+  Volume2, Music, Sun, Mic,
+  Video, Crosshair
 } from "lucide-react";
 
 const BOTTOM_TOOLS = [

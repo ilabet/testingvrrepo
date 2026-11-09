@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { X, Send, Hash, Globe, Users, ChevronDown } from "lucide-react";
+import { X, Send, Hash, Globe, Users } from "lucide-react";
 
 const CHANNELS = [
   { id: "local", label: "Local Chat", icon: Globe },

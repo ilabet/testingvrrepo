@@ -20,8 +20,8 @@ export default function LoginStatusCards({ gridLabel, proxyUrl, lastSession, acc
     {
       icon: Radio,
       label: "Stream proxy",
-      value: proxyUrl ? "Configured" : "Not configured",
-      sub: proxyUrl ? hostOf(proxyUrl) : "Sandbox scene will load instead",
+      value: proxyUrl ? "Custom bridge" : "This server",
+      sub: hostOf(proxyUrl || window.location.origin),
     },
     {
       icon: Clock,
@@ -36,7 +36,7 @@ export default function LoginStatusCards({ gridLabel, proxyUrl, lastSession, acc
       icon: BellRing,
       label: "Alerts",
       value: "No active alerts",
-      sub: "You get a Discord ping if the stream drops",
+      sub: "The bridge can ping Discord if the stream drops",
     },
   ];
 

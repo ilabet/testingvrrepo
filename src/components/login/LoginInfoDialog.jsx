@@ -5,7 +5,7 @@ export default function LoginInfoDialog({ mode, proxyUrl, onClose }) {
   const wsUrl = localStorage.getItem("sl_ws_url") || "—";
 
   const rows = [
-    ["Proxy server", proxyUrl || "not set"],
+    ["Proxy server", proxyUrl || `${window.location.origin} (this server)`],
     ["World stream", wsUrl],
     ["Saved proxy", localStorage.getItem("sl_proxy_url") || "not set"],
   ];
@@ -28,9 +28,9 @@ export default function LoginInfoDialog({ mode, proxyUrl, onClose }) {
         {mode === "help" ? (
           <ul className="space-y-2 text-xs leading-relaxed text-white/60">
             <li>Sign in with your Second Life first and last name plus your account password.</li>
-            <li>The optional proxy field is only for a live world stream — leave it empty to use the built-in sandbox scene.</li>
-            <li>Entering VR needs the published app opened in your headset's own browser over https.</li>
-            <li>A Discord alert fires automatically if the world stream drops.</li>
+            <li>Leave the proxy field empty to use the bridge this page is served from; enter another bridge URL only if you run your own elsewhere.</li>
+            <li>Entering VR needs this page opened in your headset's own browser over https (your Railway domain).</li>
+            <li>If the bridge has DISCORD_WEBHOOK_URL set, it posts a Discord alert when the world stream drops.</li>
           </ul>
         ) : (
           <div className="space-y-2">

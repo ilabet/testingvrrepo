@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Search, Users, MessageSquare, UserPlus, MapPin } from "lucide-react";
+import { X, Search, MessageSquare, UserPlus } from "lucide-react";
 
 const NEARBY = [
   { id: 1, name: "Alex Resident", distance: "5m", status: "online" },
