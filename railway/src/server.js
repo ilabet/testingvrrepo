@@ -49,7 +49,9 @@ class HostedSession {
     };
     sessions.set(this.token, this);
     issuedTokens.set(this.token, 0);
-    if (issuedTokens.size > MAX_ISSUED_TOKENS) issuedTokens.delete(issuedTokens.keys().next().value);
+    if (issuedTokens.size > MAX_ISSUED_TOKENS) {
+      for (const t of issuedTokens.keys()) if (!sessions.has(t)) { issuedTokens.delete(t); break; }
+    }
   }
 
   async login(params) {
