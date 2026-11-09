@@ -25,17 +25,18 @@ export default function Viewer() {
 
   // The bridge posts a Discord alert (if configured) when the live connection drops unexpectedly
   const handleStreamDrop = useCallback((info) => {
-    let origin;
+    let origin, session;
     try {
       const u = new URL(wsUrl);
       origin = `${u.protocol === "wss:" ? "https" : "http"}://${u.host}`;
+      session = u.searchParams.get("session");
     } catch {
       return;
     }
     fetch(`${origin}/alert/stream-drop`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: info?.reason || "connection lost" }),
+      body: JSON.stringify({ session, reason: info?.reason || "connection lost" }),
     }).catch(() => {});
   }, [wsUrl]);
 

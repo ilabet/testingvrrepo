@@ -24,6 +24,10 @@ const DETACHED_TIMEOUT_MS = Number(process.env.DETACHED_TIMEOUT_MS ?? 120000);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const sessions = new Map();
+// Every session token this process issued (kept after logout so a dropped viewer can still report it),
+// mapped to the time of its last Discord alert.
+const issuedTokens = new Map();
+const MAX_ISSUED_TOKENS = 1000;
 
 // One Second Life (or demo) session, which a viewer WebSocket can attach to and re-attach to.
 class HostedSession {
@@ -44,6 +48,8 @@ class HostedSession {
       if (this.ws && this.ws.readyState === this.ws.OPEN) this.ws.send(JSON.stringify(msg));
     };
     sessions.set(this.token, this);
+    issuedTokens.set(this.token, 0);
+    if (issuedTokens.size > MAX_ISSUED_TOKENS) issuedTokens.delete(issuedTokens.keys().next().value);
   }
 
   async login(params) {
@@ -168,13 +174,13 @@ assetRoute('texture', getTexture);
 assetRoute('mesh', getMesh);
 
 app.use('/vendor/three', express.static(path.resolve(here, '../node_modules/three'), { maxAge: '7d' }));
-// Discord ping when a viewer's world stream drops (the viewer reports it; one alert a minute at most).
-let lastAlertAt = 0;
+// Discord ping when a viewer's world stream drops. Only a session token this bridge issued may report,
+// at most one alert a minute per session.
 app.post('/alert/stream-drop', express.json({ limit: '4kb' }), async (req, res) => {
   if (!DISCORD_WEBHOOK_URL) return res.status(204).end();
-  const now = Date.now();
-  if (now - lastAlertAt < ALERT_MIN_INTERVAL_MS) return res.status(429).json({ success: false, message: 'Alert rate limited' });
-  lastAlertAt = now;
+  const token = typeof req.body?.session === 'string' ? req.body.session : '';
+  if (!issuedTokens.has(token)) return res.status(403).json({ success: false, message: 'Unknown session' });
+  if (Date.now() - issuedTokens.get(token) < ALERT_MIN_INTERVAL_MS) return res.status(429).json({ success: false, message: 'Alert rate limited' });
   const reason = typeof req.body?.reason === 'string' && req.body.reason ? req.body.reason.slice(0, 300) : 'connection lost';
   const content = ['**World stream dropped**', `**Bridge:** ${publicUrl(req)}`, `**Reason:** ${reason}`, `**When:** ${new Date().toISOString()}`].join('\n');
   try {
@@ -184,7 +190,9 @@ app.post('/alert/stream-drop', express.json({ limit: '4kb' }), async (req, res) 
       body: JSON.stringify({ username: 'SecondLife Go', content }),
       signal: AbortSignal.timeout(10000),
     });
-    return r.ok ? res.json({ success: true }) : res.status(502).json({ success: false, message: `Discord responded ${r.status}` });
+    if (!r.ok) return res.status(502).json({ success: false, message: `Discord responded ${r.status}` });
+    issuedTokens.set(token, Date.now());
+    return res.json({ success: true });
   } catch {
     return res.status(502).json({ success: false, message: 'Could not reach Discord' });
   }
