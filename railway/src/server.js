@@ -28,6 +28,7 @@ const sessions = new Map();
 // mapped to the time of its last Discord alert.
 const issuedTokens = new Map();
 const MAX_ISSUED_TOKENS = 1000;
+const alertsInFlight = new Set();
 
 // One Second Life (or demo) session, which a viewer WebSocket can attach to and re-attach to.
 class HostedSession {
@@ -182,7 +183,8 @@ app.post('/alert/stream-drop', express.json({ limit: '4kb' }), async (req, res) 
   if (!DISCORD_WEBHOOK_URL) return res.status(204).end();
   const token = typeof req.body?.session === 'string' ? req.body.session : '';
   if (!issuedTokens.has(token)) return res.status(403).json({ success: false, message: 'Unknown session' });
-  if (Date.now() - issuedTokens.get(token) < ALERT_MIN_INTERVAL_MS) return res.status(429).json({ success: false, message: 'Alert rate limited' });
+  if (alertsInFlight.has(token) || Date.now() - issuedTokens.get(token) < ALERT_MIN_INTERVAL_MS) return res.status(429).json({ success: false, message: 'Alert rate limited' });
+  alertsInFlight.add(token);
   const reason = typeof req.body?.reason === 'string' && req.body.reason ? req.body.reason.slice(0, 300) : 'connection lost';
   const content = ['**World stream dropped**', `**Bridge:** ${publicUrl(req)}`, `**Reason:** ${reason}`, `**When:** ${new Date().toISOString()}`].join('\n');
   try {
@@ -197,6 +199,8 @@ app.post('/alert/stream-drop', express.json({ limit: '4kb' }), async (req, res) 
     return res.json({ success: true });
   } catch {
     return res.status(502).json({ success: false, message: 'Could not reach Discord' });
+  } finally {
+    alertsInFlight.delete(token);
   }
 });
 
